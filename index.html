@@ -1,0 +1,1722 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#040136">
+<title>SkyGuru EMDR</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Onest:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://appssdk.zoom.us/sdk.min.js"></script>
+<style>
+:root{
+  --navy:#040136;
+  --blue:#2201B2;
+  --orange:#EE4C01;
+  --grey:#F3F4F6;
+  --ink:#0a0822;
+  --line:rgba(255,255,255,0.12);
+  --card:rgba(255,255,255,0.04);
+  --soft:rgba(255,255,255,0.65);
+  --warm-bg:#2a1a08;
+  --warm-fg:#ffd9a1;
+  --warm-accent:#ffb347;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--navy);color:#fff;font-family:'Manrope',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased;overflow:hidden;height:100%;width:100%}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+input,select{font-family:inherit}
+h1,h2,h3,h4{font-family:'Onest',sans-serif;font-weight:700;margin:0}
+
+#app{position:fixed;inset:0;display:flex;flex-direction:column}
+
+/* ===== Setup screen ===== */
+.setup{
+  position:absolute;inset:0;
+  background:radial-gradient(circle at 20% 0%, #0a0454 0%, var(--navy) 55%);
+  overflow-y:auto;
+  padding:clamp(16px,3vw,40px);
+  display:flex;flex-direction:column;gap:24px;
+}
+.topbar{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:14px}
+.logo{
+  width:48px;height:48px;border-radius:14px;
+  background:linear-gradient(135deg,var(--blue) 0%,#5b3df0 60%,var(--orange) 110%);
+  position:relative;overflow:hidden;flex-shrink:0;
+  box-shadow:0 8px 24px rgba(34,1,178,0.45);
+}
+.logo:after{
+  content:"";position:absolute;inset:0;
+  background:radial-gradient(circle at 70% 30%, rgba(255,255,255,0.55) 0%, transparent 40%);
+}
+.brand h1{font-size:clamp(20px,2.4vw,26px);letter-spacing:-0.01em}
+.brand .sub{font-size:12px;color:var(--soft);font-family:'Manrope';font-weight:500;letter-spacing:0.06em;text-transform:uppercase}
+
+.langs{display:flex;gap:4px;background:rgba(255,255,255,0.06);padding:4px;border-radius:10px}
+.langs button{padding:8px 14px;border-radius:7px;font-weight:600;font-size:13px;color:var(--soft);transition:all .15s}
+.langs button.active{background:#fff;color:var(--navy)}
+
+.section{
+  background:var(--card);
+  border:1px solid var(--line);
+  border-radius:18px;
+  padding:clamp(16px,2vw,24px);
+}
+.section h3{
+  font-size:13px;font-weight:600;font-family:'Manrope';
+  text-transform:uppercase;letter-spacing:0.08em;
+  color:var(--soft);margin-bottom:14px;
+}
+
+.modes{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.mode-card{
+  background:rgba(255,255,255,0.05);
+  border:2px solid transparent;
+  border-radius:16px;
+  padding:18px;
+  text-align:left;
+  display:flex;flex-direction:column;gap:6px;
+  transition:all .15s;
+  min-height:96px;
+}
+.mode-card:hover{background:rgba(255,255,255,0.08)}
+.mode-card.active{
+  border-color:var(--orange);
+  background:rgba(238,76,1,0.08);
+  box-shadow:0 0 0 4px rgba(238,76,1,0.12);
+}
+.mode-card .name{font-family:'Onest';font-weight:700;font-size:17px}
+.mode-card .desc{font-size:12.5px;color:var(--soft);line-height:1.4}
+
+.row{display:flex;flex-wrap:wrap;gap:12px}
+.col{flex:1;min-width:200px}
+
+.field{display:flex;flex-direction:column;gap:8px}
+.field label{font-size:13px;color:var(--soft);font-weight:500}
+.field .val{font-size:15px;font-weight:600;color:#fff}
+.input,.select{
+  background:rgba(255,255,255,0.06);
+  border:1px solid var(--line);
+  border-radius:10px;padding:11px 13px;color:#fff;font-size:14px;
+  width:100%;
+}
+.input:focus,.select:focus{outline:none;border-color:var(--orange)}
+.range{
+  -webkit-appearance:none;appearance:none;
+  width:100%;height:6px;border-radius:6px;
+  background:rgba(255,255,255,0.12);outline:none;
+}
+.range::-webkit-slider-thumb{
+  -webkit-appearance:none;width:22px;height:22px;border-radius:50%;
+  background:var(--orange);cursor:pointer;
+  box-shadow:0 2px 8px rgba(238,76,1,0.5);
+  border:2px solid #fff;
+}
+.range::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:var(--orange);cursor:pointer;border:2px solid #fff}
+
+.toggle{display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none;padding:6px 0}
+.toggle .sw{
+  position:relative;width:42px;height:24px;border-radius:12px;
+  background:rgba(255,255,255,0.16);transition:background .15s;flex-shrink:0;
+}
+.toggle .sw:after{
+  content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;
+  border-radius:50%;background:#fff;transition:transform .15s;
+}
+.toggle input{display:none}
+.toggle input:checked + .sw{background:var(--orange)}
+.toggle input:checked + .sw:after{transform:translateX(18px)}
+.toggle .lbl{font-size:14px}
+
+.subtype{display:flex;gap:8px;flex-wrap:wrap}
+.subtype button{
+  padding:9px 16px;border-radius:10px;
+  background:rgba(255,255,255,0.06);
+  border:1px solid var(--line);
+  font-size:13.5px;font-weight:500;
+}
+.subtype button.active{background:#fff;color:var(--navy);border-color:#fff;font-weight:600}
+
+.tones{display:flex;gap:8px}
+.tone-btn{
+  flex:1;padding:12px;border-radius:10px;
+  background:rgba(255,255,255,0.06);
+  border:1px solid var(--line);
+  text-align:left;
+}
+.tone-btn.active{border-color:var(--orange);background:rgba(238,76,1,0.08)}
+.tone-btn .hz{font-family:'Onest';font-weight:700;font-size:18px}
+.tone-btn .nm{font-size:11.5px;color:var(--soft);text-transform:uppercase;letter-spacing:0.05em;margin-top:2px}
+
+.scenes{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.scene-btn{
+  height:90px;border-radius:12px;
+  background-size:cover;background-position:center;
+  border:2px solid transparent;
+  position:relative;overflow:hidden;
+  display:flex;align-items:flex-end;
+  padding:10px;font-weight:600;font-size:13px;
+  text-shadow:0 1px 4px rgba(0,0,0,0.7);
+}
+.scene-btn:after{
+  content:"";position:absolute;inset:0;
+  background:linear-gradient(180deg, transparent 40%, rgba(0,0,0,0.55) 100%);
+  pointer-events:none;
+}
+.scene-btn span{position:relative;z-index:1}
+.scene-btn.active{border-color:var(--orange);box-shadow:0 0 0 4px rgba(238,76,1,0.18)}
+.scene-forest{background:linear-gradient(135deg,#1f3a1f,#3d6b2f,#5e9744)}
+.scene-sea{background:linear-gradient(180deg,#3d8fb5,#1f5f80,#0c3a52)}
+.scene-mountains{background:linear-gradient(180deg,#5b6bbd,#384878,#1c2745)}
+.scene-meadow{background:linear-gradient(180deg,#8fc88a,#b8d56a,#d8c25a)}
+
+.sud-block{
+  display:flex;flex-direction:column;gap:10px;
+}
+.sud-bar{display:flex;gap:6px}
+.sud-bar button{
+  flex:1;height:40px;border-radius:8px;
+  background:rgba(255,255,255,0.06);
+  border:1px solid var(--line);
+  font-weight:600;font-size:14px;
+  transition:all .12s;
+}
+.sud-bar button.selected{background:var(--orange);border-color:var(--orange);color:#fff}
+.sud-bar button:hover:not(.selected){background:rgba(255,255,255,0.1)}
+
+.start{
+  background:linear-gradient(135deg,var(--orange) 0%, #ff6f1f 100%);
+  color:#fff;font-weight:700;font-size:17px;
+  padding:18px 28px;border-radius:14px;
+  box-shadow:0 8px 24px rgba(238,76,1,0.4);
+  font-family:'Onest';letter-spacing:-0.01em;
+  width:100%;max-width:420px;align-self:center;
+  transition:transform .1s;
+}
+.start:hover{transform:translateY(-1px)}
+.start:disabled{opacity:0.5;cursor:not-allowed;transform:none}
+
+.disclaimer{font-size:11.5px;color:var(--soft);text-align:center;line-height:1.5;max-width:520px;margin:8px auto 0}
+
+/* ===== Active session ===== */
+.session{
+  position:absolute;inset:0;
+  background:#000;
+  display:none;
+}
+.session.show{display:block}
+.session.theme-warm{background:var(--warm-bg)}
+.session.theme-scene{background-size:cover;background-position:center}
+
+#stage{position:absolute;inset:0;width:100%;height:100%}
+
+.dot{
+  position:absolute;
+  width:42px;height:42px;border-radius:50%;
+  background:radial-gradient(circle at 35% 35%, #ffffff 0%, #d8d8d8 50%, #888 100%);
+  box-shadow:0 0 24px rgba(255,255,255,0.55), 0 0 60px rgba(255,255,255,0.18);
+  pointer-events:none;
+  transform:translate(-50%,-50%);
+  will-change:left,top;
+}
+.dot.warm{
+  background:radial-gradient(circle at 35% 35%, #fff5d6 0%, var(--warm-accent) 60%, #c47020 100%);
+  box-shadow:0 0 24px rgba(255,180,71,0.6), 0 0 60px rgba(255,140,0,0.25);
+}
+
+/* ===== Sidebar (host) ===== */
+.sidebar{
+  position:absolute;
+  top:16px;right:16px;
+  width:260px;
+  background:rgba(0,0,0,0.65);
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border:1px solid rgba(255,255,255,0.14);
+  border-radius:16px;
+  padding:14px;
+  display:flex;flex-direction:column;gap:10px;
+  font-size:13.5px;
+  z-index:20;
+  transition:opacity .25s, transform .25s;
+}
+.sidebar.collapsed{transform:translateX(calc(100% + 24px));opacity:0.05}
+.sb-toggle{
+  position:absolute;top:16px;right:16px;
+  width:40px;height:40px;border-radius:50%;
+  background:rgba(0,0,0,0.55);
+  backdrop-filter:blur(10px);
+  border:1px solid rgba(255,255,255,0.18);
+  display:none;align-items:center;justify-content:center;
+  font-size:18px;z-index:21;
+}
+.sidebar.collapsed + .sb-toggle{display:flex}
+
+.sb-row{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.sb-label{color:var(--soft);font-size:11.5px;text-transform:uppercase;letter-spacing:0.06em}
+.sb-val{font-family:'Onest';font-weight:700;font-size:16px}
+.sb-stat{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0}
+.sb-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+
+.sb-btn{
+  padding:10px 12px;border-radius:9px;
+  background:rgba(255,255,255,0.08);
+  border:1px solid rgba(255,255,255,0.14);
+  font-size:13px;font-weight:600;
+  display:flex;align-items:center;justify-content:center;gap:6px;
+}
+.sb-btn:hover{background:rgba(255,255,255,0.14)}
+.sb-btn.primary{background:var(--orange);border-color:var(--orange)}
+.sb-btn.primary:hover{background:#ff6f1f}
+.sb-btn.danger{background:rgba(220,40,40,0.85);border-color:rgba(220,40,40,0.85)}
+.sb-btn.danger:hover{background:rgba(255,60,60,0.95)}
+.sb-btn.full{grid-column:1/-1}
+
+.sb-mini{font-size:11px;color:var(--soft);text-align:center;margin-top:2px}
+
+.sb-speed-row{display:flex;align-items:center;gap:8px}
+.sb-speed-row input[type="range"]{flex:1}
+
+/* SUD overlay between sets */
+.overlay{
+  position:absolute;inset:0;
+  background:rgba(4,1,54,0.92);
+  backdrop-filter:blur(14px);
+  display:none;align-items:center;justify-content:center;
+  padding:24px;z-index:30;
+}
+.overlay.show{display:flex}
+.overlay-card{
+  background:rgba(255,255,255,0.05);
+  border:1px solid var(--line);
+  border-radius:18px;
+  padding:clamp(20px,3vw,32px);
+  max-width:520px;width:100%;
+  display:flex;flex-direction:column;gap:18px;
+}
+.overlay-card h2{font-size:22px;font-family:'Onest'}
+.overlay-card p{margin:0;color:var(--soft);font-size:14px;line-height:1.5}
+.overlay-actions{display:flex;gap:10px;flex-wrap:wrap}
+.overlay-actions .sb-btn{flex:1;min-width:120px;padding:14px}
+
+/* Container mode (no dot) */
+.container-stage{
+  position:absolute;inset:0;
+  display:flex;align-items:center;justify-content:center;
+  flex-direction:column;gap:24px;
+}
+.container-svg{width:min(40vw,320px);height:auto;filter:drop-shadow(0 8px 28px rgba(0,0,0,0.5))}
+.container-timer{
+  font-family:'Onest';font-weight:700;
+  font-size:clamp(40px,7vw,72px);
+  color:#fff;letter-spacing:0.04em;
+  font-variant-numeric:tabular-nums;
+}
+.container-hint{color:var(--soft);font-size:14px;text-align:center;max-width:380px;padding:0 20px}
+
+/* Mobile */
+@media (max-width:720px){
+  .sidebar{width:calc(100% - 32px);right:16px;left:16px}
+  .modes{grid-template-columns:1fr 1fr}
+  .scenes{grid-template-columns:1fr 1fr}
+}
+@media (max-width:480px){
+  .modes{grid-template-columns:1fr}
+}
+
+.hidden{display:none !important}
+
+/* Zoom status pill */
+.zoom-pill{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:6px 12px;border-radius:999px;
+  background:rgba(255,255,255,0.06);
+  border:1px solid var(--line);
+  font-size:12px;font-weight:600;
+  color:var(--soft);
+  white-space:nowrap;
+}
+.zoom-pill .led{
+  width:8px;height:8px;border-radius:50%;
+  background:#777;
+  box-shadow:0 0 0 0 rgba(0,0,0,0);
+}
+.zoom-pill.connected{color:#fff;border-color:rgba(46,204,113,0.45);background:rgba(46,204,113,0.12)}
+.zoom-pill.connected .led{background:#2ecc71;box-shadow:0 0 8px rgba(46,204,113,0.7)}
+.zoom-pill.collaborate{color:#fff;border-color:rgba(238,76,1,0.55);background:rgba(238,76,1,0.18)}
+.zoom-pill.collaborate .led{background:var(--orange);box-shadow:0 0 8px rgba(238,76,1,0.8)}
+
+/* Client view: hide host controls, fullscreen dot only */
+body.client-view .sidebar,
+body.client-view .sb-toggle,
+body.client-view #ratingSection,
+body.client-view #audioSection,
+body.client-view .start,
+body.client-view .disclaimer,
+body.client-view .langs,
+body.client-view .overlay{display:none !important}
+body.client-view .setup{justify-content:center;align-items:center;text-align:center}
+body.client-view #setupScreen .section{display:none}
+body.client-view #setupScreen .topbar{justify-content:center}
+body.client-view #waitingForHost{display:flex !important}
+#waitingForHost{display:none;flex-direction:column;align-items:center;gap:14px;padding:40px}
+#waitingForHost .pulse{
+  width:14px;height:14px;border-radius:50%;background:var(--orange);
+  animation:pulse 1.4s ease-in-out infinite;
+}
+@keyframes pulse{
+  0%,100%{opacity:0.4;transform:scale(0.9)}
+  50%{opacity:1;transform:scale(1.15)}
+}
+
+/* Accessibility: respect reduced motion only inside setup; active screen needs movement */
+@media (prefers-reduced-motion: reduce){
+  .setup *{transition:none !important}
+}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ==================== SETUP SCREEN ==================== -->
+  <div class="setup" id="setupScreen">
+
+    <div class="topbar">
+      <div class="brand">
+        <div class="logo"></div>
+        <div>
+          <h1>SkyGuru EMDR</h1>
+          <div class="sub" data-i18n="brand_sub">Therapist tool</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <div class="zoom-pill" id="zoomStatus" title="">
+          <span class="led"></span>
+          <span id="zoomStatusText" data-i18n="zoom_standalone">Standalone</span>
+        </div>
+        <div class="langs" id="langs">
+          <button data-lang="en" class="active">EN</button>
+          <button data-lang="ru">RU</button>
+          <button data-lang="fr">FR</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="waitingForHost">
+      <div class="pulse"></div>
+      <div style="font-size:18px;font-family:'Onest';font-weight:700" data-i18n="waiting_host">Waiting for host</div>
+      <div style="font-size:13px;color:var(--soft);max-width:320px" data-i18n="waiting_host_hint">Your therapist will start the session from their side.</div>
+    </div>
+
+    <div class="section">
+      <h3 data-i18n="mode_title">Mode</h3>
+      <div class="modes" id="modeGrid">
+        <button class="mode-card active" data-mode="emdr">
+          <span class="name" data-i18n="mode_emdr">EMDR</span>
+          <span class="desc" data-i18n="mode_emdr_desc">Bilateral eye movements with optional audio</span>
+        </button>
+        <button class="mode-card" data-mode="resource">
+          <span class="name" data-i18n="mode_resource">Resource Installation</span>
+          <span class="desc" data-i18n="mode_resource_desc">Slow tempo, warm tones, strengthens a positive resource</span>
+        </button>
+        <button class="mode-card" data-mode="container">
+          <span class="name" data-i18n="mode_container">Container</span>
+          <span class="desc" data-i18n="mode_container_desc">Visualization to store difficult material safely</span>
+        </button>
+        <button class="mode-card" data-mode="safeplace">
+          <span class="name" data-i18n="mode_safeplace">Safe Place</span>
+          <span class="desc" data-i18n="mode_safeplace_desc">Calm landscape with gentle bilateral stimulation</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- EMDR direction (shown only for EMDR mode) -->
+    <div class="section" id="directionSection">
+      <h3 data-i18n="direction_title">Direction</h3>
+      <div class="subtype" id="directionGroup">
+        <button data-dir="horizontal" class="active" data-i18n="dir_horizontal">Horizontal</button>
+        <button data-dir="diagonal" data-i18n="dir_diagonal">Diagonal</button>
+      </div>
+      <div class="subtype hidden" id="diagonalAxisGroup" style="margin-top:10px">
+        <button data-axis="ne-sw" class="active" title="↗ ↙">
+          <span style="font-size:18px;line-height:1">↗ ↙</span>
+          <span style="font-size:11px;color:var(--soft);margin-left:8px;font-weight:500" data-i18n="axis_ne_sw">NE to SW</span>
+        </button>
+        <button data-axis="nw-se" title="↘ ↖">
+          <span style="font-size:18px;line-height:1">↘ ↖</span>
+          <span style="font-size:11px;color:var(--soft);margin-left:8px;font-weight:500" data-i18n="axis_nw_se">NW to SE</span>
+        </button>
+      </div>
+      <div class="hidden" id="diagonalHint" style="font-size:11.5px;color:var(--soft);margin-top:8px" data-i18n="diagonal_hint">Axis stays fixed during a set. Change between sets if needed.</div>
+    </div>
+
+    <!-- Speed and passes (EMDR + Resource + Safe Place) -->
+    <div class="section" id="paceSection">
+      <div class="row">
+        <div class="col">
+          <div class="field">
+            <label>
+              <span data-i18n="speed_label">Speed</span>
+              <span class="val" style="float:right"><span id="speedVal">1.0</span> Hz</span>
+            </label>
+            <input type="range" class="range" id="speedRange" min="0.5" max="2.0" step="0.1" value="1.0">
+            <div style="font-size:11.5px;color:var(--soft)" data-i18n="speed_hint">Capped at 2 Hz for safety</div>
+          </div>
+        </div>
+        <div class="col">
+          <div class="field" id="passesField">
+            <label data-i18n="passes_label">Passes per set</label>
+            <input type="number" class="input" id="passesInput" min="6" max="80" value="30">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Container timer -->
+    <div class="section hidden" id="containerSection">
+      <h3 data-i18n="container_duration_title">Duration</h3>
+      <div class="subtype" id="containerDuration">
+        <button data-min="1" data-i18n="min_1">1 min</button>
+        <button data-min="2" class="active" data-i18n="min_2">2 min</button>
+        <button data-min="3" data-i18n="min_3">3 min</button>
+        <button data-min="5" data-i18n="min_5">5 min</button>
+      </div>
+    </div>
+
+    <!-- Safe Place scene picker -->
+    <div class="section hidden" id="sceneSection">
+      <h3 data-i18n="scene_title">Scene</h3>
+      <div class="scenes" id="sceneGrid">
+        <button class="scene-btn scene-forest active" data-scene="forest"><span data-i18n="scene_forest">Forest</span></button>
+        <button class="scene-btn scene-sea" data-scene="sea"><span data-i18n="scene_sea">Sea</span></button>
+        <button class="scene-btn scene-mountains" data-scene="mountains"><span data-i18n="scene_mountains">Mountains</span></button>
+        <button class="scene-btn scene-meadow" data-scene="meadow"><span data-i18n="scene_meadow">Meadow</span></button>
+      </div>
+    </div>
+
+    <!-- Audio -->
+    <div class="section" id="audioSection">
+      <h3 data-i18n="audio_title">Audio</h3>
+      <label class="toggle">
+        <input type="checkbox" id="audioOn" checked>
+        <span class="sw"></span>
+        <span class="lbl" data-i18n="audio_enable">Bilateral clicks</span>
+      </label>
+      <div class="row" id="audioControls" style="margin-top:10px">
+        <div class="col">
+          <div class="field">
+            <label data-i18n="tone_label">Click sound</label>
+            <div class="tones">
+              <button class="tone-btn active" data-freq="440">
+                <div class="hz">440 Hz</div>
+                <div class="nm" data-i18n="tone_standard">Standard</div>
+              </button>
+              <button class="tone-btn" data-freq="528">
+                <div class="hz">528 Hz</div>
+                <div class="nm" data-i18n="tone_love">Love frequency</div>
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="col">
+          <div class="field">
+            <label>
+              <span data-i18n="volume_label">Volume</span>
+              <span class="val" style="float:right"><span id="volumeVal">40</span>%</span>
+            </label>
+            <input type="range" class="range" id="volumeRange" min="0" max="100" step="1" value="40">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pre-rating -->
+    <div class="section" id="ratingSection">
+      <h3 id="ratingTitle" data-i18n="sud_before">SUD before set (0–10)</h3>
+      <div class="sud-block">
+        <div class="sud-bar" id="sudBar">
+          <button data-v="0">0</button><button data-v="1">1</button><button data-v="2">2</button>
+          <button data-v="3">3</button><button data-v="4">4</button><button data-v="5">5</button>
+          <button data-v="6">6</button><button data-v="7">7</button><button data-v="8">8</button>
+          <button data-v="9">9</button><button data-v="10">10</button>
+        </div>
+        <div style="font-size:12px;color:var(--soft)" id="ratingHint" data-i18n="sud_hint">Optional. Track distress level over time.</div>
+      </div>
+    </div>
+
+    <button class="start" id="startBtn" data-i18n="start_btn">Start session</button>
+
+    <div class="disclaimer" data-i18n="disclaimer">
+      Tool for licensed clinicians. Speed limited to 2 Hz. Stop immediately if the client experiences discomfort.
+    </div>
+  </div>
+
+  <!-- ==================== SESSION SCREEN ==================== -->
+  <div class="session" id="sessionScreen">
+    <div id="stage"></div>
+
+    <div class="sidebar" id="sidebar">
+      <div class="sb-grid">
+        <div class="sb-stat">
+          <div class="sb-label" data-i18n="sb_pass">Pass</div>
+          <div class="sb-val"><span id="sbPass">0</span> / <span id="sbTotal">30</span></div>
+        </div>
+        <div class="sb-stat">
+          <div class="sb-label" data-i18n="sb_set">Set</div>
+          <div class="sb-val">#<span id="sbSet">1</span></div>
+        </div>
+      </div>
+
+      <div id="sbSpeedBlock">
+        <div class="sb-label" data-i18n="sb_speed">Speed</div>
+        <div class="sb-speed-row">
+          <input type="range" class="range" id="sbSpeed" min="0.5" max="2.0" step="0.1">
+          <div class="sb-val" style="font-size:14px;min-width:46px;text-align:right"><span id="sbSpeedVal">1.0</span> Hz</div>
+        </div>
+      </div>
+
+      <label class="toggle" id="sbAudioToggle" style="margin:0">
+        <input type="checkbox" id="sbAudioOn" checked>
+        <span class="sw"></span>
+        <span class="lbl" style="font-size:13px" data-i18n="sb_audio">Audio</span>
+      </label>
+
+      <div class="sb-grid">
+        <button class="sb-btn" id="btnPause"><span data-i18n="pause">Pause</span></button>
+        <button class="sb-btn primary" id="btnNext"><span data-i18n="next_set">End set</span></button>
+        <button class="sb-btn danger full" id="btnStop"><span data-i18n="stop">Emergency stop</span></button>
+        <button class="sb-btn full hidden" id="btnInvite"><span data-i18n="invite_client">Invite client to view</span></button>
+        <button class="sb-btn full" id="btnHide"><span data-i18n="hide_panel">Hide panel</span></button>
+      </div>
+
+      <div class="sb-mini" data-i18n="host_only">Host only. Hidden from client view.</div>
+    </div>
+
+    <button class="sb-toggle" id="sbToggle">≡</button>
+
+    <!-- Between-sets overlay -->
+    <div class="overlay" id="overlay">
+      <div class="overlay-card">
+        <h2 id="overlayTitle" data-i18n="set_complete">Set complete</h2>
+        <p id="overlayText" data-i18n="rate_after">Rate the current SUD level (0–10) and continue or end the session.</p>
+        <div class="sud-block">
+          <div class="sud-bar" id="overlaySud">
+            <button data-v="0">0</button><button data-v="1">1</button><button data-v="2">2</button>
+            <button data-v="3">3</button><button data-v="4">4</button><button data-v="5">5</button>
+            <button data-v="6">6</button><button data-v="7">7</button><button data-v="8">8</button>
+            <button data-v="9">9</button><button data-v="10">10</button>
+          </div>
+        </div>
+        <div class="overlay-actions">
+          <button class="sb-btn" id="overlayEnd"><span data-i18n="end_session">End session</span></button>
+          <button class="sb-btn primary" id="overlayContinue"><span data-i18n="continue_set">Continue</span></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* =============================================================
+   i18n
+============================================================= */
+const I18N = {
+  en: {
+    brand_sub:"Therapist tool",
+    mode_title:"Mode",
+    mode_emdr:"EMDR",
+    mode_emdr_desc:"Bilateral eye movements with optional clicks",
+    mode_resource:"Resource Installation",
+    mode_resource_desc:"Slow tempo, warm tones, strengthens a positive resource",
+    mode_container:"Container",
+    mode_container_desc:"Visualization to store difficult material safely",
+    mode_safeplace:"Safe Place",
+    mode_safeplace_desc:"Calm landscape with gentle bilateral stimulation",
+    direction_title:"Direction",
+    dir_horizontal:"Horizontal",
+    dir_diagonal:"Diagonal",
+    axis_ne_sw:"NE to SW",
+    axis_nw_se:"NW to SE",
+    diagonal_hint:"Axis stays fixed during a set. Change between sets if needed.",
+    speed_label:"Speed",
+    speed_hint:"Capped at 2 Hz for safety",
+    passes_label:"Passes per set",
+    container_duration_title:"Duration",
+    min_1:"1 min", min_2:"2 min", min_3:"3 min", min_5:"5 min",
+    scene_title:"Scene",
+    scene_forest:"Forest", scene_sea:"Sea", scene_mountains:"Mountains", scene_meadow:"Meadow",
+    audio_title:"Audio",
+    audio_enable:"Bilateral clicks",
+    tone_label:"Click sound",
+    tone_standard:"Standard",
+    tone_love:"Love frequency",
+    volume_label:"Volume",
+    sud_before:"SUD before set (0 to 10)",
+    sud_resource_before:"Resource strength (0 to 10)",
+    sud_hint:"Optional. Track distress level over time.",
+    sud_resource_hint:"Optional. Track resource strength over time.",
+    start_btn:"Start session",
+    start_btn_resource:"Start resource installation",
+    start_btn_container:"Start container",
+    start_btn_safeplace:"Start safe place",
+    disclaimer:"Tool for licensed clinicians. Speed limited to 2 Hz. Stop immediately if the client experiences discomfort.",
+    sb_pass:"Pass", sb_set:"Set", sb_speed:"Speed", sb_audio:"Audio",
+    pause:"Pause", resume:"Resume",
+    next_set:"End set",
+    stop:"Emergency stop",
+    hide_panel:"Hide panel",
+    host_only:"Host only. Hidden from client view.",
+    set_complete:"Set complete",
+    rate_after:"Rate the current SUD level (0 to 10) and continue or end the session.",
+    rate_after_resource:"Rate resource strength now (0 to 10) and continue or end.",
+    end_session:"End session",
+    continue_set:"Continue",
+    container_done:"Container session complete.",
+    container_hint:"Visualize placing difficult material into the container.",
+    safeplace_hint:"Hold the safe place image. Notice details, sounds, sensations.",
+    zoom_standalone:"Standalone",
+    zoom_connected:"Zoom connected",
+    zoom_collaborate:"Collaborate active",
+    zoom_no_meeting:"Zoom client (no meeting)",
+    invite_client:"Invite client to view",
+    end_collaborate:"End collaboration",
+    waiting_host:"Waiting for host",
+    waiting_host_hint:"Your therapist will start the session from their side.",
+  },
+  ru: {
+    brand_sub:"Инструмент терапевта",
+    mode_title:"Режим",
+    mode_emdr:"EMDR",
+    mode_emdr_desc:"Билатеральные движения глаз с опциональными кликами",
+    mode_resource:"Установка ресурса",
+    mode_resource_desc:"Медленный темп, тёплые тона, усиление позитивного ресурса",
+    mode_container:"Контейнер",
+    mode_container_desc:"Визуализация для безопасного хранения тяжёлого материала",
+    mode_safeplace:"Безопасное место",
+    mode_safeplace_desc:"Спокойный пейзаж с мягкой билатеральной стимуляцией",
+    direction_title:"Направление",
+    dir_horizontal:"Горизонталь",
+    dir_diagonal:"Диагональ",
+    axis_ne_sw:"СВ → ЮЗ",
+    axis_nw_se:"СЗ → ЮВ",
+    diagonal_hint:"Ось остаётся фиксированной в течение сета. Смена между сетами по необходимости.",
+    speed_label:"Скорость",
+    speed_hint:"Ограничено 2 Гц по соображениям безопасности",
+    passes_label:"Проходов в сете",
+    container_duration_title:"Длительность",
+    min_1:"1 мин", min_2:"2 мин", min_3:"3 мин", min_5:"5 мин",
+    scene_title:"Сцена",
+    scene_forest:"Лес", scene_sea:"Море", scene_mountains:"Горы", scene_meadow:"Луг",
+    audio_title:"Звук",
+    audio_enable:"Билатеральные клики",
+    tone_label:"Звук клика",
+    tone_standard:"Стандарт",
+    tone_love:"Частота любви",
+    volume_label:"Громкость",
+    sud_before:"SUD до сета (0 до 10)",
+    sud_resource_before:"Сила ресурса (0 до 10)",
+    sud_hint:"Необязательно. Отслеживание уровня дистресса.",
+    sud_resource_hint:"Необязательно. Отслеживание силы ресурса.",
+    start_btn:"Начать сессию",
+    start_btn_resource:"Начать установку ресурса",
+    start_btn_container:"Начать контейнер",
+    start_btn_safeplace:"Начать безопасное место",
+    disclaimer:"Инструмент для лицензированных специалистов. Скорость ограничена 2 Гц. Немедленно остановитесь, если клиент испытывает дискомфорт.",
+    sb_pass:"Проход", sb_set:"Сет", sb_speed:"Скорость", sb_audio:"Звук",
+    pause:"Пауза", resume:"Продолжить",
+    next_set:"Завершить сет",
+    stop:"Экстренная остановка",
+    hide_panel:"Скрыть панель",
+    host_only:"Только для хоста. Клиент не видит панель.",
+    set_complete:"Сет завершён",
+    rate_after:"Оцените уровень SUD (0 до 10) и продолжите или завершите.",
+    rate_after_resource:"Оцените силу ресурса (0 до 10) и продолжите или завершите.",
+    end_session:"Завершить сессию",
+    continue_set:"Продолжить",
+    container_done:"Сессия контейнера завершена.",
+    container_hint:"Мысленно поместите сложный материал в контейнер.",
+    safeplace_hint:"Удерживайте образ безопасного места. Замечайте детали, звуки, ощущения.",
+    zoom_standalone:"Браузер",
+    zoom_connected:"Zoom подключён",
+    zoom_collaborate:"Совместный режим активен",
+    zoom_no_meeting:"Zoom клиент (нет встречи)",
+    invite_client:"Пригласить клиента к просмотру",
+    end_collaborate:"Завершить совместный режим",
+    waiting_host:"Ожидание хоста",
+    waiting_host_hint:"Терапевт запустит сессию со своей стороны.",
+  },
+  fr: {
+    brand_sub:"Outil pour thérapeute",
+    mode_title:"Mode",
+    mode_emdr:"EMDR",
+    mode_emdr_desc:"Mouvements oculaires bilatéraux avec clics optionnels",
+    mode_resource:"Installation de ressource",
+    mode_resource_desc:"Rythme lent, tons chauds, renforce une ressource positive",
+    mode_container:"Conteneur",
+    mode_container_desc:"Visualisation pour stocker en sécurité du matériel difficile",
+    mode_safeplace:"Lieu sûr",
+    mode_safeplace_desc:"Paysage calme avec stimulation bilatérale douce",
+    direction_title:"Direction",
+    dir_horizontal:"Horizontale",
+    dir_diagonal:"Diagonale",
+    axis_ne_sw:"NE vers SO",
+    axis_nw_se:"NO vers SE",
+    diagonal_hint:"L'axe reste fixe pendant une série. Modifiable entre les séries.",
+    speed_label:"Vitesse",
+    speed_hint:"Limité à 2 Hz pour la sécurité",
+    passes_label:"Passages par série",
+    container_duration_title:"Durée",
+    min_1:"1 min", min_2:"2 min", min_3:"3 min", min_5:"5 min",
+    scene_title:"Scène",
+    scene_forest:"Forêt", scene_sea:"Mer", scene_mountains:"Montagnes", scene_meadow:"Prairie",
+    audio_title:"Audio",
+    audio_enable:"Clics bilatéraux",
+    tone_label:"Son du clic",
+    tone_standard:"Standard",
+    tone_love:"Fréquence de l'amour",
+    volume_label:"Volume",
+    sud_before:"SUD avant la série (0 à 10)",
+    sud_resource_before:"Force de la ressource (0 à 10)",
+    sud_hint:"Optionnel. Suivi du niveau de détresse.",
+    sud_resource_hint:"Optionnel. Suivi de la force de la ressource.",
+    start_btn:"Démarrer la session",
+    start_btn_resource:"Démarrer l'installation",
+    start_btn_container:"Démarrer le conteneur",
+    start_btn_safeplace:"Démarrer le lieu sûr",
+    disclaimer:"Outil pour cliniciens agréés. Vitesse limitée à 2 Hz. Arrêtez immédiatement en cas d'inconfort du client.",
+    sb_pass:"Passage", sb_set:"Série", sb_speed:"Vitesse", sb_audio:"Audio",
+    pause:"Pause", resume:"Reprendre",
+    next_set:"Terminer la série",
+    stop:"Arrêt d'urgence",
+    hide_panel:"Masquer le panneau",
+    host_only:"Hôte uniquement. Invisible pour le client.",
+    set_complete:"Série terminée",
+    rate_after:"Évaluez le niveau SUD (0 à 10) et continuez ou terminez.",
+    rate_after_resource:"Évaluez la force de la ressource (0 à 10) et continuez ou terminez.",
+    end_session:"Terminer la session",
+    continue_set:"Continuer",
+    container_done:"Session conteneur terminée.",
+    container_hint:"Visualisez le placement du matériel difficile dans le conteneur.",
+    safeplace_hint:"Maintenez l'image du lieu sûr. Remarquez les détails, sons, sensations.",
+    zoom_standalone:"Navigateur",
+    zoom_connected:"Zoom connecté",
+    zoom_collaborate:"Mode collaboratif actif",
+    zoom_no_meeting:"Client Zoom (pas de réunion)",
+    invite_client:"Inviter le client à voir",
+    end_collaborate:"Terminer la collaboration",
+    waiting_host:"En attente de l'hôte",
+    waiting_host_hint:"Votre thérapeute démarrera la session de son côté.",
+  }
+};
+
+const STATE = {
+  lang: localStorage.getItem('emdr_lang') || (navigator.language||'en').slice(0,2),
+  mode: 'emdr',
+  direction: 'horizontal',
+  diagonalAxis: 'ne-sw',
+  speedHz: 1.0,
+  passes: 30,
+  containerMin: 2,
+  scene: 'forest',
+  audioOn: true,
+  toneFreq: 440,
+  volume: 0.4,
+  sudBefore: null,
+  sudAfter: null,
+  setIndex: 1,
+};
+if(!I18N[STATE.lang]) STATE.lang = 'en';
+
+/* =============================================================
+   i18n helpers
+============================================================= */
+function t(key){
+  const dict = I18N[STATE.lang] || I18N.en;
+  return dict[key] || I18N.en[key] || key;
+}
+function applyI18n(){
+  document.querySelectorAll('[data-i18n]').forEach(el=>{
+    const k = el.getAttribute('data-i18n');
+    el.textContent = t(k);
+  });
+  document.documentElement.lang = STATE.lang;
+  // contextual labels
+  refreshContextualLabels();
+}
+function refreshContextualLabels(){
+  const ratingTitle = document.getElementById('ratingTitle');
+  const ratingHint = document.getElementById('ratingHint');
+  const startBtn = document.getElementById('startBtn');
+  const overlayTitle = document.getElementById('overlayTitle');
+  const overlayText = document.getElementById('overlayText');
+
+  if(STATE.mode === 'resource'){
+    ratingTitle.textContent = t('sud_resource_before');
+    ratingHint.textContent = t('sud_resource_hint');
+    startBtn.textContent = t('start_btn_resource');
+    overlayText.textContent = t('rate_after_resource');
+  } else if(STATE.mode === 'container'){
+    startBtn.textContent = t('start_btn_container');
+  } else if(STATE.mode === 'safeplace'){
+    startBtn.textContent = t('start_btn_safeplace');
+  } else {
+    ratingTitle.textContent = t('sud_before');
+    ratingHint.textContent = t('sud_hint');
+    startBtn.textContent = t('start_btn');
+    overlayText.textContent = t('rate_after');
+  }
+}
+
+/* =============================================================
+   Setup screen wiring
+============================================================= */
+const $ = (s)=>document.querySelector(s);
+const $$ = (s)=>document.querySelectorAll(s);
+
+// Lang switcher
+$$('#langs button').forEach(b=>{
+  b.onclick = ()=>{
+    STATE.lang = b.dataset.lang;
+    localStorage.setItem('emdr_lang', STATE.lang);
+    $$('#langs button').forEach(x=>x.classList.toggle('active', x===b));
+    applyI18n();
+  };
+});
+
+// Mode selector
+$$('#modeGrid .mode-card').forEach(b=>{
+  b.onclick = ()=>{
+    $$('#modeGrid .mode-card').forEach(x=>x.classList.toggle('active', x===b));
+    STATE.mode = b.dataset.mode;
+    updateSetupVisibility();
+    refreshContextualLabels();
+    // resource mode: lock speed at 0.7 Hz
+    if(STATE.mode === 'resource'){
+      STATE.speedHz = 0.7;
+      $('#speedRange').value = 0.7;
+      $('#speedVal').textContent = '0.7';
+    }
+    // safeplace: lock at 0.5 Hz
+    if(STATE.mode === 'safeplace'){
+      STATE.speedHz = 0.5;
+      $('#speedRange').value = 0.5;
+      $('#speedVal').textContent = '0.5';
+    }
+  };
+});
+
+function updateSetupVisibility(){
+  const m = STATE.mode;
+  const isMoving = (m==='emdr' || m==='resource' || m==='safeplace');
+  $('#directionSection').classList.toggle('hidden', m!=='emdr');
+  $('#paceSection').classList.toggle('hidden', !isMoving);
+  $('#passesField').classList.toggle('hidden', m==='safeplace' || m==='container');
+  $('#containerSection').classList.toggle('hidden', m!=='container');
+  $('#sceneSection').classList.toggle('hidden', m!=='safeplace');
+  $('#audioSection').classList.toggle('hidden', false);
+  $('#ratingSection').classList.toggle('hidden', m==='container' || m==='safeplace');
+  // disable speed slider in fixed-speed modes
+  $('#speedRange').disabled = (m==='resource' || m==='safeplace');
+}
+
+// Direction
+$$('#directionGroup button').forEach(b=>{
+  b.onclick = ()=>{
+    $$('#directionGroup button').forEach(x=>x.classList.toggle('active', x===b));
+    STATE.direction = b.dataset.dir;
+    const showAxis = (STATE.direction === 'diagonal');
+    $('#diagonalAxisGroup').classList.toggle('hidden', !showAxis);
+    $('#diagonalHint').classList.toggle('hidden', !showAxis);
+  };
+});
+
+// Diagonal axis
+$$('#diagonalAxisGroup button').forEach(b=>{
+  b.onclick = ()=>{
+    $$('#diagonalAxisGroup button').forEach(x=>x.classList.toggle('active', x===b));
+    STATE.diagonalAxis = b.dataset.axis;
+  };
+});
+
+// Speed slider (HARD CAP enforced)
+$('#speedRange').oninput = (e)=>{
+  let v = parseFloat(e.target.value);
+  v = Math.min(2.0, Math.max(0.5, v));
+  STATE.speedHz = v;
+  $('#speedVal').textContent = v.toFixed(1);
+};
+
+// Passes
+$('#passesInput').oninput = (e)=>{
+  let v = parseInt(e.target.value,10);
+  if(isNaN(v) || v<6) v = 6;
+  if(v>80) v = 80;
+  STATE.passes = v;
+};
+
+// Container duration
+$$('#containerDuration button').forEach(b=>{
+  b.onclick = ()=>{
+    $$('#containerDuration button').forEach(x=>x.classList.toggle('active', x===b));
+    STATE.containerMin = parseInt(b.dataset.min,10);
+  };
+});
+
+// Scene
+$$('#sceneGrid .scene-btn').forEach(b=>{
+  b.onclick = ()=>{
+    $$('#sceneGrid .scene-btn').forEach(x=>x.classList.toggle('active', x===b));
+    STATE.scene = b.dataset.scene;
+  };
+});
+
+// Audio toggle (setup screen)
+function setAudioOn(on, source){
+  STATE.audioOn = !!on;
+  $('#audioControls').style.opacity = STATE.audioOn ? 1 : 0.4;
+  $('#audioControls').style.pointerEvents = STATE.audioOn ? 'auto' : 'none';
+  // sync both checkboxes
+  if(source !== 'setup') $('#audioOn').checked = STATE.audioOn;
+  if(source !== 'sidebar'){
+    const sb = document.getElementById('sbAudioOn');
+    if(sb) sb.checked = STATE.audioOn;
+  }
+}
+$('#audioOn').onchange = (e)=>setAudioOn(e.target.checked, 'setup');
+// Tone
+$$('.tone-btn').forEach(b=>{
+  b.onclick = ()=>{
+    $$('.tone-btn').forEach(x=>x.classList.toggle('active', x===b));
+    STATE.toneFreq = parseInt(b.dataset.freq,10);
+  };
+});
+// Volume
+$('#volumeRange').oninput = (e)=>{
+  STATE.volume = parseInt(e.target.value,10) / 100;
+  $('#volumeVal').textContent = e.target.value;
+};
+
+// SUD bar (pre)
+let sudPreSelected = null;
+$$('#sudBar button').forEach(b=>{
+  b.onclick = ()=>{
+    $$('#sudBar button').forEach(x=>x.classList.toggle('selected', x===b));
+    sudPreSelected = parseInt(b.dataset.v,10);
+    STATE.sudBefore = sudPreSelected;
+  };
+});
+
+// Lang init
+document.querySelectorAll('#langs button').forEach(b=>{
+  b.classList.toggle('active', b.dataset.lang === STATE.lang);
+});
+
+updateSetupVisibility();
+applyI18n();
+
+/* =============================================================
+   Zoom Apps SDK bridge.
+   Handles three runtime contexts:
+     1. Standalone browser (Phase 1 fallback, screen-share via Zoom).
+     2. Zoom client, host role: full UI, can start Collaborate Mode.
+     3. Zoom client, participant in Collaborate session: client view,
+        receives state from host and renders dot in sync.
+============================================================= */
+const ZoomBridge = {
+  available:false,
+  inMeeting:false,
+  isHost:false,
+  collaborateActive:false,
+  isCollaborator:false,
+  role:'standalone', // 'standalone' | 'host' | 'client'
+  meetingUUID:null,
+  participantUUID:null,
+
+  async init(){
+    if(typeof zoomSdk === 'undefined') return this._setStandalone();
+    try{
+      const cfg = await zoomSdk.config({
+        version:'0.16',
+        capabilities:[
+          'getRunningContext',
+          'getMeetingContext',
+          'getUserContext',
+          'getMeetingParticipants',
+          'expandApp',
+          'showNotification',
+          'sendAppInvitationToAllParticipants',
+          'startCollaborate',
+          'endCollaborate',
+          'syncAppState',
+          'getCollaborateContext',
+          'onSyncAppState',
+          'onCollaborateChange',
+          'onMeeting'
+        ]
+      });
+      this.available = true;
+      this.runningContext = cfg.runningContext;
+      this.inMeeting = (cfg.runningContext === 'inMeeting');
+
+      // user context
+      try{
+        const u = await zoomSdk.getUserContext();
+        this.isHost = (u.role === 'host' || u.role === 'coHost');
+        this.participantUUID = u.participantUUID || null;
+      }catch(e){}
+
+      // meeting context
+      try{
+        const m = await zoomSdk.getMeetingContext();
+        this.meetingUUID = m.meetingUUID || null;
+      }catch(e){}
+
+      // already inside a Collaborate session?
+      try{
+        const cc = await zoomSdk.getCollaborateContext();
+        if(cc && cc.isCollaborating){
+          this.collaborateActive = true;
+          this.isCollaborator = !this.isHost;
+        }
+      }catch(e){}
+
+      this._setRole();
+      this._wireEvents();
+      this._renderStatus();
+      this._renderUI();
+    }catch(err){
+      // SDK present but config rejected (e.g. opened in browser)
+      this._setStandalone();
+    }
+  },
+
+  _setStandalone(){
+    this.available = false;
+    this.role = 'standalone';
+    this._renderStatus();
+  },
+
+  _setRole(){
+    if(!this.inMeeting){ this.role = 'host'; return; } // app open but no meeting yet
+    if(this.isCollaborator) this.role = 'client';
+    else this.role = 'host';
+  },
+
+  _wireEvents(){
+    // host pushes state, client receives
+    zoomSdk.addEventListener('onSyncAppState', (event)=>{
+      try{
+        const payload = JSON.parse(event.appState || '{}');
+        if(this.role === 'client') applyRemoteState(payload);
+      }catch(e){}
+    });
+    zoomSdk.addEventListener('onCollaborateChange', (event)=>{
+      this.collaborateActive = !!event.isCollaborating;
+      if(!this.collaborateActive){
+        this.isCollaborator = false;
+        this._setRole();
+      } else if(!this.isHost){
+        this.isCollaborator = true;
+        this.role = 'client';
+      }
+      this._renderStatus();
+      this._renderUI();
+    });
+    zoomSdk.addEventListener('onMeeting', (event)=>{
+      this.inMeeting = (event && event.action === 'started');
+      this._renderStatus();
+    });
+  },
+
+  async startCollaborate(){
+    if(!this.available || !this.inMeeting || !this.isHost) return false;
+    try{
+      await zoomSdk.startCollaborate();
+      try{ await zoomSdk.sendAppInvitationToAllParticipants(); }catch(e){}
+      this.collaborateActive = true;
+      this._renderStatus();
+      this._renderUI();
+      // immediately push current state so any client opening sees the right setup
+      this.syncState({type:'idle', state:snapshotState()});
+      return true;
+    }catch(e){
+      console.warn('startCollaborate failed', e);
+      return false;
+    }
+  },
+
+  async endCollaborate(){
+    if(!this.available || !this.collaborateActive) return;
+    try{ await zoomSdk.endCollaborate(); }catch(e){}
+    this.collaborateActive = false;
+    this._renderStatus();
+    this._renderUI();
+  },
+
+  async syncState(payload){
+    if(!this.available || !this.collaborateActive || this.role !== 'host') return;
+    try{
+      await zoomSdk.syncAppState({appState: JSON.stringify(payload)});
+    }catch(e){}
+  },
+
+  _renderStatus(){
+    const pill = document.getElementById('zoomStatus');
+    const text = document.getElementById('zoomStatusText');
+    if(!pill || !text) return;
+    pill.classList.remove('connected','collaborate');
+    let key = 'zoom_standalone';
+    if(this.collaborateActive){ pill.classList.add('collaborate'); key = 'zoom_collaborate'; }
+    else if(this.available && this.inMeeting){ pill.classList.add('connected'); key = 'zoom_connected'; }
+    else if(this.available && !this.inMeeting){ pill.classList.add('connected'); key = 'zoom_no_meeting'; }
+    text.textContent = t(key);
+  },
+
+  _renderUI(){
+    document.body.classList.toggle('client-view', this.role === 'client');
+    const inviteBtn = document.getElementById('btnInvite');
+    if(inviteBtn){
+      const showInvite = this.available && this.inMeeting && this.isHost;
+      inviteBtn.classList.toggle('hidden', !showInvite);
+      inviteBtn.firstElementChild.textContent = this.collaborateActive ? t('end_collaborate') : t('invite_client');
+    }
+  }
+};
+
+/* Snapshot of relevant session state for syncing to client. */
+function snapshotState(){
+  return {
+    mode: STATE.mode,
+    direction: STATE.direction,
+    diagonalAxis: STATE.diagonalAxis,
+    speedHz: STATE.speedHz,
+    passes: STATE.passes,
+    containerMin: STATE.containerMin,
+    scene: STATE.scene,
+    lang: STATE.lang,
+    setIndex: STATE.setIndex,
+  };
+}
+
+/* Client-side: receive a state update from host and render. */
+function applyRemoteState(payload){
+  if(!payload || !payload.type) return;
+  if(payload.state){
+    Object.assign(STATE, payload.state);
+    applyI18n();
+  }
+  if(payload.type === 'sessionStart'){
+    enterSession();
+    beginSetClient(payload.startedAt || Date.now());
+  } else if(payload.type === 'pause'){
+    if(session.running && !session.paused) pauseToggle();
+  } else if(payload.type === 'resume'){
+    if(session.running && session.paused) pauseToggle();
+  } else if(payload.type === 'endSet'){
+    if(session.running) endSet();
+  } else if(payload.type === 'sessionEnd'){
+    emergencyStop();
+  } else if(payload.type === 'speed'){
+    if(typeof payload.value === 'number'){
+      STATE.speedHz = Math.min(2.0, Math.max(0.5, payload.value));
+    }
+  } else if(payload.type === 'idle'){
+    // just sync params; do not start
+  }
+}
+
+/* Client begins a set with a host-provided origin time so movement aligns. */
+function beginSetClient(startedAtMs){
+  session.running = true;
+  session.paused = false;
+  session.passCount = 0;
+  session.lastEdge = 0;
+  // align local clock to host's startedAt
+  session.startedAt = performance.now() - (Date.now() - startedAtMs);
+  session.pausedAccum = 0;
+  if(STATE.mode === 'container'){
+    runContainer();
+  } else {
+    if(STATE.audioOn) ensureAudioReady();
+    session.raf = requestAnimationFrame(loop);
+  }
+}
+
+/* =============================================================
+   Audio engine. Web Audio API, short bilateral clicks.
+   Each click is a short sine burst with a fast attack/decay envelope,
+   panned hard L or hard R to match the dot's peak position.
+   Sounds like a soft percussion stick, not metallic.
+============================================================= */
+let audioCtx = null;
+
+function initAudio(){
+  if(audioCtx) return;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+}
+
+function ensureAudioReady(){
+  if(!audioCtx) initAudio();
+  if(audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+/* Play a single soft click panned hard left (-1) or hard right (+1).
+   Envelope: 4 ms attack, ~22 ms exponential decay.
+   Slight pitch sweep for a softer, woodier feel. */
+function playClick(pan){
+  if(!STATE.audioOn) return;
+  ensureAudioReady();
+  const now = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  const panner = audioCtx.createStereoPanner ? audioCtx.createStereoPanner() : null;
+
+  osc.type = 'sine';
+  // pitch sweeps from a touch above target down to base for softer attack
+  const f0 = STATE.toneFreq * 1.18;
+  const f1 = STATE.toneFreq;
+  osc.frequency.setValueAtTime(f0, now);
+  osc.frequency.exponentialRampToValueAtTime(f1, now + 0.018);
+
+  // amplitude envelope
+  const peak = Math.max(0.0001, STATE.volume * 0.85);
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(peak, now + 0.004);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.026);
+
+  osc.connect(gain);
+  if(panner){
+    panner.pan.setValueAtTime(pan, now);
+    gain.connect(panner);
+    panner.connect(audioCtx.destination);
+  } else {
+    gain.connect(audioCtx.destination);
+  }
+
+  osc.start(now);
+  osc.stop(now + 0.05);
+  // cleanup
+  osc.onended = ()=>{
+    try{ osc.disconnect(); gain.disconnect(); if(panner) panner.disconnect(); }catch(e){}
+  };
+}
+
+/* Soft chime for container completion */
+function playChime(){
+  ensureAudioReady();
+  const now = audioCtx.currentTime;
+  [523.25, 659.25, 783.99].forEach((f,i)=>{
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = 'sine';
+    o.frequency.value = f;
+    g.gain.value = 0;
+    o.connect(g); g.connect(audioCtx.destination);
+    const start = now + i*0.18;
+    o.start(start);
+    g.gain.setValueAtTime(0, start);
+    g.gain.linearRampToValueAtTime(0.18, start + 0.04);
+    g.gain.linearRampToValueAtTime(0, start + 1.2);
+    o.stop(start + 1.3);
+  });
+}
+
+/* =============================================================
+   Session engine
+============================================================= */
+const session = {
+  running:false,
+  paused:false,
+  raf:null,
+  startedAt:0,
+  pausedAccum:0,
+  pauseStartedAt:0,
+  passCount:0,
+  setIndex:1,
+  lastEdge:0,
+  // container timer
+  timerEnd:0,
+  timerRaf:null,
+};
+
+const sceneScreen = $('#sessionScreen');
+const stage = $('#stage');
+const dotEl = document.createElement('div');
+dotEl.className = 'dot';
+
+function buildStage(){
+  stage.innerHTML = '';
+  if(STATE.mode === 'container'){
+    stage.appendChild(buildContainer());
+    return;
+  }
+  // dot-based modes
+  dotEl.classList.toggle('warm', STATE.mode === 'resource');
+  stage.appendChild(dotEl);
+}
+
+function buildContainer(){
+  const wrap = document.createElement('div');
+  wrap.className = 'container-stage';
+  wrap.innerHTML = `
+    <svg class="container-svg" viewBox="0 0 240 200" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="cg1" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#3a2f7a"/>
+          <stop offset="100%" stop-color="#2201B2"/>
+        </linearGradient>
+        <linearGradient id="cg2" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#5b3df0"/>
+          <stop offset="100%" stop-color="#1a0a6e"/>
+        </linearGradient>
+      </defs>
+      <!-- chest body -->
+      <rect x="30" y="70" width="180" height="110" rx="8" fill="url(#cg1)" stroke="#fff" stroke-opacity="0.18" stroke-width="1.5"/>
+      <!-- chest lid -->
+      <path d="M30 80 Q120 30 210 80 L210 90 L30 90 Z" fill="url(#cg2)" stroke="#fff" stroke-opacity="0.22" stroke-width="1.5"/>
+      <!-- lock plate -->
+      <rect x="108" y="90" width="24" height="34" rx="3" fill="#0a0822" stroke="#fff" stroke-opacity="0.3"/>
+      <circle cx="120" cy="105" r="4" fill="#EE4C01"/>
+      <line x1="120" y1="108" x2="120" y2="118" stroke="#EE4C01" stroke-width="2.5"/>
+      <!-- bands -->
+      <rect x="30" y="118" width="180" height="6" fill="#0a0822" opacity="0.55"/>
+      <rect x="30" y="160" width="180" height="6" fill="#0a0822" opacity="0.55"/>
+      <!-- subtle pulse -->
+      <circle cx="120" cy="125" r="60" fill="none" stroke="#fff" stroke-opacity="0.06">
+        <animate attributeName="r" values="50;90;50" dur="6s" repeatCount="indefinite"/>
+        <animate attributeName="stroke-opacity" values="0.10;0;0.10" dur="6s" repeatCount="indefinite"/>
+      </circle>
+    </svg>
+    <div class="container-timer" id="containerTimer">--:--</div>
+    <div class="container-hint">${t('container_hint')}</div>
+  `;
+  return wrap;
+}
+
+function applyTheme(){
+  sceneScreen.classList.remove('theme-warm','theme-scene');
+  sceneScreen.style.background = '';
+  if(STATE.mode === 'resource'){
+    sceneScreen.classList.add('theme-warm');
+  } else if(STATE.mode === 'safeplace'){
+    sceneScreen.classList.add('theme-scene');
+    sceneScreen.style.background = sceneBackground(STATE.scene);
+  }
+}
+
+function sceneBackground(name){
+  // Pure CSS gradients. No external images, works offline.
+  const map = {
+    forest: 'linear-gradient(180deg,#0c1f0c 0%,#1f3a1f 30%,#3d6b2f 70%,#5e9744 100%)',
+    sea:    'linear-gradient(180deg,#06243a 0%,#0c4a70 35%,#3d8fb5 75%,#a8d4e8 100%)',
+    mountains: 'linear-gradient(180deg,#1c2745 0%,#384878 35%,#5b6bbd 65%,#b2bce0 100%)',
+    meadow: 'linear-gradient(180deg,#62a0d3 0%,#9ad0a8 40%,#d8c25a 80%,#f0d27c 100%)',
+  };
+  return map[name] || map.forest;
+}
+
+/* =============================================================
+   Animation
+============================================================= */
+function startSession(){
+  // resume audio context after user gesture
+  if(STATE.audioOn) initAudio();
+  if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+
+  STATE.setIndex = 1;
+  enterSession();
+  beginSet();
+}
+
+function enterSession(){
+  $('#setupScreen').style.display = 'none';
+  sceneScreen.classList.add('show');
+  applyTheme();
+  buildStage();
+  // sidebar speed slider sync
+  $('#sbSpeed').value = STATE.speedHz;
+  $('#sbSpeedVal').textContent = STATE.speedHz.toFixed(1);
+  $('#sbSpeed').disabled = (STATE.mode === 'resource' || STATE.mode === 'safeplace');
+  $('#sbSpeedBlock').style.display = (STATE.mode === 'container') ? 'none' : 'block';
+  $('#btnNext').style.display = (STATE.mode === 'container') ? 'none' : 'flex';
+  $('#sbPass').textContent = '0';
+  $('#sbTotal').textContent = STATE.mode === 'container' ? '--' : STATE.passes;
+  $('#sbSet').textContent = STATE.setIndex;
+  // sync sidebar audio toggle with current state
+  document.getElementById('sbAudioOn').checked = STATE.audioOn;
+  // hide audio toggle in container mode (no clicks there)
+  document.getElementById('sbAudioToggle').style.display = (STATE.mode === 'container') ? 'none' : 'flex';
+}
+
+function beginSet(){
+  session.running = true;
+  session.paused = false;
+  session.passCount = 0;
+  session.lastEdge = 0;
+  session.startedAt = performance.now();
+  session.pausedAccum = 0;
+  $('#sbPass').textContent = '0';
+  $('#sbSet').textContent = STATE.setIndex;
+  $('#btnPause').firstElementChild.textContent = t('pause');
+  hideOverlay();
+
+  if(STATE.mode === 'container'){
+    runContainer();
+  } else {
+    if(STATE.audioOn) ensureAudioReady();
+    session.raf = requestAnimationFrame(loop);
+  }
+}
+
+function elapsedSec(){
+  let now = performance.now();
+  if(session.paused) return (session.pauseStartedAt - session.startedAt - session.pausedAccum)/1000;
+  return (now - session.startedAt - session.pausedAccum)/1000;
+}
+
+/* Movement: position(t) = sin(2π * f * t). Full L→R→L cycle is one Hz,
+   so a "pass" (one direction crossing) happens twice per cycle.
+   Edges (peak left / peak right) are at sin = ±1.
+*/
+function loop(){
+  if(!session.running) return;
+  if(session.paused){ session.raf = requestAnimationFrame(loop); return; }
+
+  const f = Math.min(2.0, Math.max(0.1, STATE.speedHz));
+  const t = elapsedSec();
+  const phase = 2 * Math.PI * f * t;
+  const x = Math.sin(phase);              // -1..1
+
+  let nx, ny;
+  const W = stage.clientWidth;
+  const H = stage.clientHeight;
+  const margin = Math.min(W,H)*0.08 + 30;
+
+  if(STATE.direction === 'diagonal' && STATE.mode === 'emdr'){
+    // Fixed diagonal axis for the whole set.
+    // ne-sw  (↗ ↙): top-right peak ↔ bottom-left peak. y = -x in normalized coords.
+    // nw-se  (↘ ↖): top-left peak ↔ bottom-right peak. y = +x.
+    nx = x;
+    ny = (STATE.diagonalAxis === 'ne-sw') ? -x : x;
+  } else {
+    nx = x;
+    ny = 0;
+  }
+
+  const px = W/2 + nx * (W/2 - margin);
+  const py = H/2 + ny * (H/2 - margin);
+  dotEl.style.left = px + 'px';
+  dotEl.style.top  = py + 'px';
+
+  // Detect peaks (sin = ±1). At peakA (π/2) x = +1, at peakB (3π/2) x = -1.
+  // Fire one bilateral click at each peak, panned hard L/R to match.
+  const phaseMod = ((phase % (2*Math.PI)) + 2*Math.PI) % (2*Math.PI);
+  const peakA = Math.PI/2;
+  const peakB = 3*Math.PI/2;
+  const tol = 0.06;
+  let atPeak = false;
+  let peakPan = 0;
+  if(Math.abs(phaseMod - peakA) < tol){ atPeak = true; peakPan = +1; }
+  else if(Math.abs(phaseMod - peakB) < tol){ atPeak = true; peakPan = -1; }
+
+  if(atPeak && (t - session.lastEdge) > (0.5/f)*0.7){
+    session.lastEdge = t;
+    session.passCount += 1;
+    $('#sbPass').textContent = session.passCount;
+    if(STATE.audioOn) playClick(peakPan);
+    if(session.passCount >= STATE.passes){
+      endSet();
+      return;
+    }
+  }
+
+  session.raf = requestAnimationFrame(loop);
+}
+
+function pauseToggle(){
+  if(!session.running) return;
+  if(STATE.mode === 'container'){
+    if(session.paused){
+      // resume timer
+      session.paused = false;
+      session.timerEnd += (performance.now() - session.pauseStartedAt);
+      $('#btnPause').firstElementChild.textContent = t('pause');
+      runContainer();
+    } else {
+      session.paused = true;
+      session.pauseStartedAt = performance.now();
+      cancelAnimationFrame(session.timerRaf);
+      $('#btnPause').firstElementChild.textContent = t('resume');
+    }
+    return;
+  }
+  if(session.paused){
+    session.paused = false;
+    session.pausedAccum += (performance.now() - session.pauseStartedAt);
+    $('#btnPause').firstElementChild.textContent = t('pause');
+  } else {
+    session.paused = true;
+    session.pauseStartedAt = performance.now();
+    $('#btnPause').firstElementChild.textContent = t('resume');
+  }
+}
+
+function endSet(){
+  session.running = false;
+  cancelAnimationFrame(session.raf);
+  if(STATE.mode === 'container'){
+    showContainerDone();
+    return;
+  }
+  showOverlay();
+}
+
+function emergencyStop(){
+  session.running = false;
+  cancelAnimationFrame(session.raf);
+  cancelAnimationFrame(session.timerRaf);
+  exitToSetup();
+}
+
+function showOverlay(){
+  $('#overlay').classList.add('show');
+  $$('#overlaySud button').forEach(x=>x.classList.remove('selected'));
+}
+function hideOverlay(){ $('#overlay').classList.remove('show'); }
+
+$$('#overlaySud button').forEach(b=>{
+  b.onclick = ()=>{
+    $$('#overlaySud button').forEach(x=>x.classList.toggle('selected', x===b));
+    STATE.sudAfter = parseInt(b.dataset.v,10);
+  };
+});
+
+$('#overlayContinue').onclick = ()=>{
+  STATE.setIndex += 1;
+  beginSet();
+};
+$('#overlayEnd').onclick = ()=>{
+  exitToSetup();
+};
+$('#btnPause').onclick = ()=>{
+  pauseToggle();
+  ZoomBridge.syncState({type: session.paused ? 'pause' : 'resume', state:snapshotState()});
+};
+$('#btnNext').onclick = ()=>{
+  if(session.running){
+    ZoomBridge.syncState({type:'endSet', state:snapshotState()});
+    endSet();
+  }
+};
+$('#btnStop').onclick = ()=>{
+  ZoomBridge.syncState({type:'sessionEnd'});
+  emergencyStop();
+};
+$('#btnInvite').onclick = async ()=>{
+  if(ZoomBridge.collaborateActive){
+    await ZoomBridge.endCollaborate();
+  } else {
+    await ZoomBridge.startCollaborate();
+  }
+};
+$('#btnHide').onclick = ()=>{
+  $('#sidebar').classList.add('collapsed');
+};
+$('#sbToggle').onclick = ()=>{
+  $('#sidebar').classList.remove('collapsed');
+};
+let _sbSpeedSyncTimer = null;
+$('#sbSpeed').oninput = (e)=>{
+  let v = parseFloat(e.target.value);
+  v = Math.min(2.0, Math.max(0.5, v));
+  STATE.speedHz = v;
+  $('#sbSpeedVal').textContent = v.toFixed(1);
+  // throttle sync to avoid flooding the channel while dragging
+  clearTimeout(_sbSpeedSyncTimer);
+  _sbSpeedSyncTimer = setTimeout(()=>{
+    ZoomBridge.syncState({type:'speed', value:v});
+  }, 120);
+};
+$('#sbAudioOn').onchange = (e)=>setAudioOn(e.target.checked, 'sidebar');
+
+function exitToSetup(){
+  sceneScreen.classList.remove('show');
+  $('#setupScreen').style.display = '';
+  $('#sidebar').classList.remove('collapsed');
+  hideOverlay();
+}
+
+/* =============================================================
+   Container mode
+============================================================= */
+function runContainer(){
+  if(!session.timerEnd){
+    session.timerEnd = performance.now() + STATE.containerMin * 60 * 1000;
+  }
+  const tick = ()=>{
+    if(!session.running) return;
+    if(session.paused){ return; }
+    const remaining = Math.max(0, session.timerEnd - performance.now());
+    const totalSec = Math.ceil(remaining/1000);
+    const m = Math.floor(totalSec/60);
+    const s = totalSec % 60;
+    const el = $('#containerTimer');
+    if(el) el.textContent = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    if(remaining <= 0){
+      showContainerDone();
+      return;
+    }
+    session.timerRaf = requestAnimationFrame(tick);
+  };
+  session.timerRaf = requestAnimationFrame(tick);
+}
+
+function showContainerDone(){
+  session.running = false;
+  cancelAnimationFrame(session.timerRaf);
+  playChime();
+  setTimeout(()=>{
+    exitToSetup();
+    session.timerEnd = 0;
+  }, 1400);
+}
+
+/* =============================================================
+   Start handler
+============================================================= */
+$('#startBtn').onclick = ()=>{
+  STATE.speedHz = Math.min(2.0, Math.max(0.1, STATE.speedHz));
+  session.timerEnd = 0;
+  startSession();
+  ZoomBridge.syncState({
+    type:'sessionStart',
+    state:snapshotState(),
+    startedAt: Date.now()
+  });
+};
+
+/* =============================================================
+   Keyboard shortcuts (host convenience)
+============================================================= */
+document.addEventListener('keydown', (e)=>{
+  if(!session.running) return;
+  if(e.code === 'Space'){ e.preventDefault(); pauseToggle(); }
+  else if(e.key === 'Escape'){ e.preventDefault(); emergencyStop(); }
+  else if(e.key === 'ArrowRight' && STATE.mode!=='container'){ e.preventDefault(); endSet(); }
+});
+
+/* Resize redraw */
+window.addEventListener('resize', ()=>{
+  // dot will be repositioned on next frame
+});
+
+/* =============================================================
+   Boot Zoom bridge after DOM and i18n are ready.
+   Fails silently in standalone browser context (Phase 1 path).
+============================================================= */
+ZoomBridge.init().catch(()=>{});
+</script>
+</body>
+</html>
