@@ -374,6 +374,33 @@ body.client-view #waitingForHost{display:flex !important}
 @media (prefers-reduced-motion: reduce){
   .setup *{transition:none !important}
 }
+
+/* ===== Immersive render layer =====
+   When this app is drawn (via drawWebView) as a transparent layer on top of a
+   participant's video in Zoom Immersive Mode, strip everything down to the ball. */
+html.immersive-render,
+html.immersive-render body,
+body.immersive-render #app,
+body.immersive-render .session,
+body.immersive-render .session.show,
+body.immersive-render .session.theme-warm,
+body.immersive-render .session.theme-scene{
+  background:transparent !important;
+}
+body.immersive-render #setupScreen,
+body.immersive-render .sidebar,
+body.immersive-render .sb-toggle,
+body.immersive-render .overlay,
+body.immersive-render #waitingForHost{ display:none !important; }
+body.immersive-render #sessionScreen{ display:block !important; }
+/* larger, brighter dot so it reads clearly over live video */
+body.immersive-render .dot{
+  width:50px;height:50px;
+  box-shadow:0 0 28px rgba(255,255,255,0.85), 0 0 80px rgba(255,255,255,0.4);
+}
+body.immersive-render .dot.warm{
+  box-shadow:0 0 28px rgba(255,180,71,0.9), 0 0 80px rgba(255,140,0,0.45);
+}
 </style>
 </head>
 <body>
@@ -1053,11 +1080,31 @@ const ZoomBridge = {
           'getCollaborateContext',
           'onSyncAppState',
           'onCollaborateChange',
-          'onMeeting'
+          'onMeeting',
+          /* Layers API — immersive mode (ball over the patient's video) */
+          'runRenderingContext',
+          'closeRenderingContext',
+          'drawParticipant',
+          'clearParticipant',
+          'drawWebView',
+          'clearWebView',
+          'onParticipantChange',
+          'onRenderedAppOpened',
+          'postMessage',
+          'onMessage'
         ]
       });
       this.available = true;
       this.runningContext = cfg.runningContext;
+
+      // This instance is the app drawn as an immersive/camera webview layer:
+      // strip the UI to just the ball and listen for the controller's commands.
+      if(cfg.runningContext === 'inImmersive' || cfg.runningContext === 'inCamera'){
+        this.role = 'webview';
+        Immersive.initRenderedWebview();
+        return;
+      }
+
       this.inMeeting = (cfg.runningContext === 'inMeeting');
 
       // user context
@@ -1128,6 +1175,23 @@ const ZoomBridge = {
       this.inMeeting = (event && event.action === 'started');
       this._renderStatus();
     });
+    // Layers API (controller side) — immersive mode orchestration
+    try{
+      zoomSdk.addEventListener('onRenderedAppOpened', ()=>{
+        if(Immersive.active) Immersive._drawLayers();
+      });
+    }catch(e){}
+    try{
+      zoomSdk.addEventListener('onParticipantChange', ()=>{
+        if(Immersive.active) Immersive.redrawClient();
+      });
+    }catch(e){}
+    try{
+      zoomSdk.addEventListener('onMessage', (e)=>{
+        const payload = Immersive._parse(e);
+        if(payload) Immersive.onWebviewMessage(payload);
+      });
+    }catch(e){}
   },
 
   async startCollaborate(){
@@ -1156,10 +1220,13 @@ const ZoomBridge = {
   },
 
   async syncState(payload){
-    if(!this.available || !this.collaborateActive || this.role !== 'host') return;
-    try{
-      await zoomSdk.syncAppState({appState: JSON.stringify(payload)});
-    }catch(e){}
+    if(!this.available) return;
+    // legacy Collaborate Mode path (client opens app in their own side panel)
+    if(this.collaborateActive && this.role === 'host'){
+      try{ await zoomSdk.syncAppState({appState: JSON.stringify(payload)}); }catch(e){}
+    }
+    // immersive Mode path (ball drawn over the patient's video for everyone)
+    if(Immersive.active){ Immersive.send(payload); }
   },
 
   _renderStatus(){
@@ -1168,7 +1235,7 @@ const ZoomBridge = {
     if(!pill || !text) return;
     pill.classList.remove('connected','collaborate');
     let key = 'zoom_standalone';
-    if(this.collaborateActive){ pill.classList.add('collaborate'); key = 'zoom_collaborate'; }
+    if(this.collaborateActive || Immersive.active){ pill.classList.add('collaborate'); key = 'zoom_collaborate'; }
     else if(this.available && this.inMeeting){ pill.classList.add('connected'); key = 'zoom_connected'; }
     else if(this.available && !this.inMeeting){ pill.classList.add('connected'); key = 'zoom_no_meeting'; }
     text.textContent = t(key);
@@ -1180,8 +1247,170 @@ const ZoomBridge = {
     if(inviteBtn){
       const showInvite = this.available && this.inMeeting && this.isHost;
       inviteBtn.classList.toggle('hidden', !showInvite);
-      inviteBtn.firstElementChild.textContent = this.collaborateActive ? t('end_collaborate') : t('invite_client');
+      const sharing = this.collaborateActive || Immersive.active;
+      inviteBtn.firstElementChild.textContent = sharing ? t('end_collaborate') : t('invite_client');
     }
+  }
+};
+
+/* =============================================================
+   Immersive Mode (Layers API) — the therapeutic core.
+   Renders the EMDR ball *over the other participant's video*,
+   visible to everyone in the meeting.
+
+   Two instances of this app cooperate:
+     - controller : the host's normal in-meeting side panel — drives it
+     - webview    : a second instance, drawn by drawWebView as a
+                    transparent layer on top of the participant's video
+   They talk over postMessage / onMessage.
+============================================================= */
+const Immersive = {
+  active:false,        // controller: an immersive session is running
+  isWebview:false,     // this instance IS the drawn webview layer
+  clientUUID:null,
+  webviewReady:false,
+  _drawing:false,
+  _readyTimer:null,
+
+  supported(){
+    return ZoomBridge.available && ZoomBridge.inMeeting && ZoomBridge.isHost
+      && typeof zoomSdk !== 'undefined'
+      && typeof zoomSdk.runRenderingContext === 'function';
+  },
+
+  _post(payload){
+    try{ zoomSdk.postMessage(JSON.stringify(payload)); }
+    catch(e){ try{ zoomSdk.postMessage(payload); }catch(_){} }
+  },
+
+  _parse(e){
+    if(typeof e === 'string'){ try{ return JSON.parse(e); }catch(_){ return null; } }
+    if(e && typeof e.payload === 'string'){ try{ return JSON.parse(e.payload); }catch(_){ return e; } }
+    if(e && e.payload) return e.payload;
+    return e;
+  },
+
+  /* ---------- WEBVIEW SIDE: this instance is the rendered ball layer ---------- */
+  initRenderedWebview(){
+    this.isWebview = true;
+    document.documentElement.classList.add('immersive-render');
+    document.body.classList.add('immersive-render');
+    try{ enterSession(); }catch(e){}   // show the stage immediately, transparent
+    try{
+      zoomSdk.addEventListener('onMessage', (e)=>{
+        const payload = this._parse(e);
+        if(payload) this._onControllerMessage(payload);
+      });
+    }catch(e){}
+    // announce ourselves to the controller, retrying until acknowledged
+    let tries = 0;
+    this._post({type:'__webview_hello'});
+    this._readyTimer = setInterval(()=>{
+      this._post({type:'__webview_hello'});
+      if(++tries > 20 && this._readyTimer){ clearInterval(this._readyTimer); this._readyTimer = null; }
+    }, 400);
+  },
+
+  _onControllerMessage(payload){
+    if(!payload || !payload.type) return;
+    if(payload.type === '__ack'){
+      if(this._readyTimer){ clearInterval(this._readyTimer); this._readyTimer = null; }
+      return;
+    }
+    // anything else is EMDR state — reuse the existing client renderer
+    applyRemoteState(payload);
+  },
+
+  /* ---------- CONTROLLER SIDE: host drives immersive mode ---------- */
+  async start(){
+    if(!this.supported() || this.active) return false;
+    try{
+      await this._pickClient();
+      await zoomSdk.runRenderingContext({ view:'immersive', defaultCutout:'standard' });
+      try{ await zoomSdk.sendAppInvitationToAllParticipants(); }catch(e){}
+      this.active = true;
+      this.webviewReady = false;
+      // draw on the onRenderedAppOpened event; this is a fallback if it is missed
+      setTimeout(()=>{ this._drawLayers(); }, 700);
+      ZoomBridge._renderStatus(); ZoomBridge._renderUI();
+      return true;
+    }catch(e){
+      console.warn('Immersive.start failed', e);
+      this.active = false;
+      ZoomBridge._renderStatus(); ZoomBridge._renderUI();
+      return false;
+    }
+  },
+
+  async _pickClient(){
+    try{
+      const res = await zoomSdk.getMeetingParticipants();
+      const list = (res && res.participants) || [];
+      const others = list.filter(p => p && p.participantUUID && p.participantUUID !== ZoomBridge.participantUUID);
+      this.clientUUID = others.length ? others[0].participantUUID : null;
+    }catch(e){ this.clientUUID = null; }
+  },
+
+  async _drawLayers(){
+    if(!this.active || this._drawing) return;
+    this._drawing = true;
+    try{
+      // patient's video fills the canvas (clear first — there is no in-place update)
+      try{ await zoomSdk.clearWebView(); }catch(e){}
+      if(this.clientUUID){
+        try{ await zoomSdk.clearParticipant({participantUUID:this.clientUUID}); }catch(e){}
+        try{
+          await zoomSdk.drawParticipant({
+            participantUUID:this.clientUUID,
+            x:'0%', y:'0%', width:'100%', height:'100%',
+            zIndex:1, cutout:'standard'
+          });
+        }catch(e){ console.warn('drawParticipant failed', e); }
+      }
+      // the EMDR ball as a transparent layer ON TOP of the video
+      try{
+        await zoomSdk.drawWebView({ x:'0%', y:'0%', width:'100%', height:'100%', zIndex:2 });
+      }catch(e){ console.warn('drawWebView failed', e); }
+    } finally {
+      this._drawing = false;
+    }
+  },
+
+  async redrawClient(){
+    if(!this.active) return;
+    await this._pickClient();
+    await this._drawLayers();
+  },
+
+  // controller: the webview instance just announced itself
+  onWebviewMessage(payload){
+    if(!payload || payload.type !== '__webview_hello') return;
+    this.webviewReady = true;
+    this._post({type:'__ack'});
+    // push current state so the ball appears already in sync
+    let snap;
+    if(typeof session !== 'undefined' && session.running){
+      snap = { type:'sessionStart', state:snapshotState(),
+               startedAt: Date.now() - Math.round(elapsedSec()*1000) };
+    } else {
+      snap = { type:'idle', state:snapshotState() };
+    }
+    this._post(snap);
+    ZoomBridge._renderStatus();
+  },
+
+  // controller: broadcast EMDR state to the webview layer
+  send(payload){
+    if(!this.active) return;
+    this._post(payload);
+  },
+
+  async stop(){
+    if(!this.active) return;
+    this.active = false;
+    this.webviewReady = false;
+    try{ await zoomSdk.closeRenderingContext(); }catch(e){}
+    ZoomBridge._renderStatus(); ZoomBridge._renderUI();
   }
 };
 
@@ -1398,6 +1627,8 @@ function buildContainer(){
 function applyTheme(){
   sceneScreen.classList.remove('theme-warm','theme-scene');
   sceneScreen.style.background = '';
+  // Immersive render layer must stay transparent so the patient's video shows through.
+  if(document.body.classList.contains('immersive-render')) return;
   if(STATE.mode === 'resource'){
     sceneScreen.classList.add('theme-warm');
   } else if(STATE.mode === 'safeplace'){
@@ -1615,10 +1846,21 @@ $('#btnStop').onclick = ()=>{
   emergencyStop();
 };
 $('#btnInvite').onclick = async ()=>{
-  if(ZoomBridge.collaborateActive){
-    await ZoomBridge.endCollaborate();
+  // Primary path: Immersive Mode — ball over the patient's video, seen by all.
+  if(Immersive.active){
+    await Immersive.stop();
+  } else if(Immersive.supported()){
+    await Immersive.start();
+    // if a session is already running the handshake will sync it; otherwise
+    // push idle state so params are ready the moment the layer appears
+    ZoomBridge.syncState({type:'idle', state:snapshotState()});
   } else {
-    await ZoomBridge.startCollaborate();
+    // fallback: legacy Collaborate Mode (e.g. unsupported client version)
+    if(ZoomBridge.collaborateActive){
+      await ZoomBridge.endCollaborate();
+    } else {
+      await ZoomBridge.startCollaborate();
+    }
   }
 };
 $('#btnHide').onclick = ()=>{
@@ -1646,6 +1888,8 @@ function exitToSetup(){
   $('#setupScreen').style.display = '';
   $('#sidebar').classList.remove('collapsed');
   hideOverlay();
+  // tear down the immersive layer when the host ends the session
+  if(typeof Immersive !== 'undefined' && Immersive.active){ Immersive.stop(); }
 }
 
 /* =============================================================
@@ -1686,9 +1930,15 @@ function showContainerDone(){
 /* =============================================================
    Start handler
 ============================================================= */
-$('#startBtn').onclick = ()=>{
+$('#startBtn').onclick = async ()=>{
   STATE.speedHz = Math.min(2.0, Math.max(0.1, STATE.speedHz));
   session.timerEnd = 0;
+  // Host in a meeting: render the ball over the patient's video for everyone.
+  // The webview handshake re-syncs state once the layer is live, so it is safe
+  // to start the local session immediately afterwards.
+  if(Immersive.supported() && !Immersive.active){
+    await Immersive.start();
+  }
   startSession();
   ZoomBridge.syncState({
     type:'sessionStart',
