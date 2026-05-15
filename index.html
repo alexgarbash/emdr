@@ -401,6 +401,26 @@ body.immersive-render .dot{
 body.immersive-render .dot.warm{
   box-shadow:0 0 28px rgba(255,180,71,0.9), 0 0 80px rgba(255,140,0,0.45);
 }
+
+/* ===== Brainspotting: therapist-only activation marks =====
+   Rendered in the host's stage; explicitly hidden in the immersive layer
+   so the patient never sees these dots. */
+.brainspotting-mark{
+  position:absolute;
+  width:18px;height:18px;border-radius:50%;
+  background:radial-gradient(circle at 38% 38%, #ffe28a 0%, #ff8e2b 55%, #b8550e 100%);
+  box-shadow:0 0 10px rgba(255,170,80,.85), 0 0 26px rgba(255,140,40,.45);
+  transform:translate(-50%,-50%);
+  pointer-events:none;
+  z-index:5;
+}
+.brainspotting-mark::after{
+  content:attr(data-n);
+  position:absolute; left:50%; top:-20px; transform:translateX(-50%);
+  font-size:11px; font-weight:700; color:#ffd76b;
+  text-shadow:0 1px 3px rgba(0,0,0,0.85);
+}
+body.immersive-render .brainspotting-mark{ display:none !important; }
 </style>
 </head>
 <body>
@@ -454,6 +474,10 @@ body.immersive-render .dot.warm{
         <button class="mode-card" data-mode="safeplace">
           <span class="name" data-i18n="mode_safeplace">Safe Place</span>
           <span class="desc" data-i18n="mode_safeplace_desc">Calm landscape with gentle bilateral stimulation</span>
+        </button>
+        <button class="mode-card" data-mode="brainspotting">
+          <span class="name" data-i18n="mode_brainspotting">Brainspotting</span>
+          <span class="desc" data-i18n="mode_brainspotting_desc">Slow guided trajectory — press Space to mark activation</span>
         </button>
       </div>
     </div>
@@ -661,6 +685,8 @@ const I18N = {
     mode_container_desc:"Visualization to store difficult material safely",
     mode_safeplace:"Safe Place",
     mode_safeplace_desc:"Calm landscape with gentle bilateral stimulation",
+    mode_brainspotting:"Brainspotting",
+    mode_brainspotting_desc:"Slow guided trajectory — press Space to mark activation",
     direction_title:"Direction",
     dir_horizontal:"Horizontal",
     dir_diagonal:"Diagonal",
@@ -689,7 +715,7 @@ const I18N = {
     start_btn_container:"Start container",
     start_btn_safeplace:"Start safe place",
     disclaimer:"Tool for licensed clinicians. Speed limited to 2 Hz. Stop immediately if the client experiences discomfort.",
-    sb_pass:"Pass", sb_set:"Set", sb_speed:"Speed", sb_audio:"Audio",
+    sb_pass:"Pass", sb_marks:"Marks", sb_set:"Set", sb_speed:"Speed", sb_audio:"Audio",
     pause:"Pause", resume:"Resume",
     next_set:"End set",
     stop:"Emergency stop",
@@ -723,6 +749,8 @@ const I18N = {
     mode_container_desc:"Визуализация для безопасного хранения тяжёлого материала",
     mode_safeplace:"Безопасное место",
     mode_safeplace_desc:"Спокойный пейзаж с мягкой билатеральной стимуляцией",
+    mode_brainspotting:"Брейнспоттинг",
+    mode_brainspotting_desc:"Медленная траектория — пробел отмечает зоны активации",
     direction_title:"Направление",
     dir_horizontal:"Горизонталь",
     dir_diagonal:"Диагональ",
@@ -751,7 +779,7 @@ const I18N = {
     start_btn_container:"Начать контейнер",
     start_btn_safeplace:"Начать безопасное место",
     disclaimer:"Инструмент для лицензированных специалистов. Скорость ограничена 2 Гц. Немедленно остановитесь, если клиент испытывает дискомфорт.",
-    sb_pass:"Проход", sb_set:"Сет", sb_speed:"Скорость", sb_audio:"Звук",
+    sb_pass:"Проход", sb_marks:"Метки", sb_set:"Сет", sb_speed:"Скорость", sb_audio:"Звук",
     pause:"Пауза", resume:"Продолжить",
     next_set:"Завершить сет",
     stop:"Экстренная остановка",
@@ -785,6 +813,8 @@ const I18N = {
     mode_container_desc:"Visualisation pour stocker en sécurité du matériel difficile",
     mode_safeplace:"Lieu sûr",
     mode_safeplace_desc:"Paysage calme avec stimulation bilatérale douce",
+    mode_brainspotting:"Brainspotting",
+    mode_brainspotting_desc:"Trajectoire lente — Espace marque les zones d'activation",
     direction_title:"Direction",
     dir_horizontal:"Horizontale",
     dir_diagonal:"Diagonale",
@@ -813,7 +843,7 @@ const I18N = {
     start_btn_container:"Démarrer le conteneur",
     start_btn_safeplace:"Démarrer le lieu sûr",
     disclaimer:"Outil pour cliniciens agréés. Vitesse limitée à 2 Hz. Arrêtez immédiatement en cas d'inconfort du client.",
-    sb_pass:"Passage", sb_set:"Série", sb_speed:"Vitesse", sb_audio:"Audio",
+    sb_pass:"Passage", sb_marks:"Repères", sb_set:"Série", sb_speed:"Vitesse", sb_audio:"Audio",
     pause:"Pause", resume:"Reprendre",
     next_set:"Terminer la série",
     stop:"Arrêt d'urgence",
@@ -931,19 +961,25 @@ $$('#modeGrid .mode-card').forEach(b=>{
       $('#speedRange').value = 0.5;
       $('#speedVal').textContent = '0.5';
     }
+    // brainspotting: variable tempo, default baseline (1.0 ≈ ~48 s per full cycle)
+    if(STATE.mode === 'brainspotting'){
+      STATE.speedHz = 1.0;
+      $('#speedRange').value = 1.0;
+      $('#speedVal').textContent = '1.0';
+    }
   };
 });
 
 function updateSetupVisibility(){
   const m = STATE.mode;
-  const isMoving = (m==='emdr' || m==='resource' || m==='safeplace');
+  const isMoving = (m==='emdr' || m==='resource' || m==='safeplace' || m==='brainspotting');
   $('#directionSection').classList.toggle('hidden', m!=='emdr');
   $('#paceSection').classList.toggle('hidden', !isMoving);
-  $('#passesField').classList.toggle('hidden', m==='safeplace' || m==='container');
+  $('#passesField').classList.toggle('hidden', m==='safeplace' || m==='container' || m==='brainspotting');
   $('#containerSection').classList.toggle('hidden', m!=='container');
   $('#sceneSection').classList.toggle('hidden', m!=='safeplace');
-  $('#audioSection').classList.toggle('hidden', false);
-  $('#ratingSection').classList.toggle('hidden', m==='container' || m==='safeplace');
+  $('#audioSection').classList.toggle('hidden', m==='brainspotting');
+  $('#ratingSection').classList.toggle('hidden', m==='container' || m==='safeplace' || m==='brainspotting');
   // disable speed slider in fixed-speed modes
   $('#speedRange').disabled = (m==='resource' || m==='safeplace');
 }
@@ -1467,6 +1503,8 @@ function beginSetClient(startedAtMs){
   session.pausedAccum = 0;
   if(STATE.mode === 'container'){
     runContainer();
+  } else if(STATE.mode === 'brainspotting'){
+    session.raf = requestAnimationFrame(brainspottingLoop);
   } else {
     if(STATE.audioOn) ensureAudioReady();
     session.raf = requestAnimationFrame(loop);
@@ -1581,8 +1619,10 @@ function buildStage(){
     stage.appendChild(buildContainer());
     return;
   }
-  // dot-based modes
+  // dot-based modes (emdr / resource / safeplace / brainspotting)
   dotEl.classList.toggle('warm', STATE.mode === 'resource');
+  // reset any scale carried over from a previous brainspotting session
+  dotEl.style.transform = '';
   stage.appendChild(dotEl);
 }
 
@@ -1669,16 +1709,25 @@ function enterSession(){
   // sidebar speed slider sync
   $('#sbSpeed').value = STATE.speedHz;
   $('#sbSpeedVal').textContent = STATE.speedHz.toFixed(1);
+  const isBs = STATE.mode === 'brainspotting';
   $('#sbSpeed').disabled = (STATE.mode === 'resource' || STATE.mode === 'safeplace');
   $('#sbSpeedBlock').style.display = (STATE.mode === 'container') ? 'none' : 'block';
-  $('#btnNext').style.display = (STATE.mode === 'container') ? 'none' : 'flex';
+  $('#btnNext').style.display = (STATE.mode === 'container' || isBs) ? 'none' : 'flex';
   $('#sbPass').textContent = '0';
-  $('#sbTotal').textContent = STATE.mode === 'container' ? '--' : STATE.passes;
+  $('#sbTotal').textContent = STATE.mode === 'container' ? '--' : (isBs ? '∞' : STATE.passes);
   $('#sbSet').textContent = STATE.setIndex;
+  // brainspotting: relabel "Pass" → "Marks" (sb_pass → sb_marks)
+  const passLbl = document.querySelector('[data-i18n="sb_pass"], [data-i18n="sb_marks"]');
+  if(passLbl){
+    passLbl.setAttribute('data-i18n', isBs ? 'sb_marks' : 'sb_pass');
+    passLbl.textContent = t(isBs ? 'sb_marks' : 'sb_pass');
+  }
   // sync sidebar audio toggle with current state
   document.getElementById('sbAudioOn').checked = STATE.audioOn;
-  // hide audio toggle in container mode (no clicks there)
-  document.getElementById('sbAudioToggle').style.display = (STATE.mode === 'container') ? 'none' : 'flex';
+  // hide audio toggle in container & brainspotting modes (no clicks there)
+  document.getElementById('sbAudioToggle').style.display = (STATE.mode === 'container' || isBs) ? 'none' : 'flex';
+  // brainspotting: start with a clean slate of marks
+  if(isBs && typeof clearBrainspottingMarks === 'function'){ clearBrainspottingMarks(); }
 }
 
 function beginSet(){
@@ -1695,6 +1744,8 @@ function beginSet(){
 
   if(STATE.mode === 'container'){
     runContainer();
+  } else if(STATE.mode === 'brainspotting'){
+    session.raf = requestAnimationFrame(brainspottingLoop);
   } else {
     if(STATE.audioOn) ensureAudioReady();
     session.raf = requestAnimationFrame(loop);
@@ -1764,6 +1815,141 @@ function loop(){
   }
 
   session.raf = requestAnimationFrame(loop);
+}
+
+/* =============================================================
+   Brainspotting choreography.
+
+   One cycle (16 "units" of time, repeats indefinitely):
+     Phase A — 8 edge segments, clockwise:
+        TL → TM → TR → RM → BR → BM → BL → LM → TL          (8 units)
+     Phase B — return to center + grow/shrink (depth illusion) (4 units)
+     Phase C — figure-8 (infinity), 2 loops                    (4 units)
+
+   STATE.speedHz acts as a tempo multiplier (1.0 = baseline ≈ 48 s/cycle).
+   The therapist marks "activation zones" with Space; marks render only on
+   the host's screen (the immersive webview hides them via CSS).
+============================================================= */
+const brainspottingState = { lastNx:0, lastNy:0 };
+
+function brainspottingLoop(){
+  if(!session.running) return;
+  if(session.paused){ session.raf = requestAnimationFrame(brainspottingLoop); return; }
+
+  const tempo = Math.min(2.0, Math.max(0.3, STATE.speedHz || 1.0));
+  const unitSec = 3.0 / tempo;     // seconds per choreography "unit"
+  const t = elapsedSec();
+  const u = t / unitSec;
+  const CYCLE = 16;
+  const phase = u - Math.floor(u / CYCLE) * CYCLE;   // 0..16
+
+  const W = stage.clientWidth;
+  const H = stage.clientHeight;
+  const margin = Math.min(W,H)*0.08 + 30;
+  const cx = W/2, cy = H/2;
+  const ax = W/2 - margin;
+  const ay = H/2 - margin;
+
+  let nx = 0, ny = 0;
+  let scale = 1.0;
+
+  if(phase < 8){
+    // Phase A — edge traversal, 8 segments
+    const seg = Math.floor(phase);
+    const p = phase - seg;
+    const e = 0.5 - 0.5 * Math.cos(p * Math.PI);  // smooth ease in/out
+    const pts = [
+      [-1,-1], [ 0,-1], [ 1,-1], [ 1, 0],
+      [ 1, 1], [ 0, 1], [-1, 1], [-1, 0],
+      [-1,-1]
+    ];
+    const a = pts[seg], b = pts[seg+1];
+    nx = a[0] + (b[0]-a[0]) * e;
+    ny = a[1] + (b[1]-a[1]) * e;
+  } else if(phase < 12){
+    // Phase B — diagonal to center, then breath (grow then shrink, "receding")
+    const sub = phase - 8;     // 0..4
+    if(sub < 1){
+      // glide from top-left back into center
+      const p = sub;
+      const e = 0.5 - 0.5 * Math.cos(p * Math.PI);
+      nx = -1 + 1*e;
+      ny = -1 + 1*e;
+      scale = 1.0;
+    } else {
+      nx = 0; ny = 0;
+      const p = (sub - 1) / 3;   // 0..1 over 3 units at center
+      // grows to 3x by midpoint, then recedes to 0.4x
+      if(p < 0.5){
+        const q = p / 0.5;
+        scale = 1.0 + 2.0 * (0.5 - 0.5 * Math.cos(q * Math.PI));
+      } else {
+        const q = (p - 0.5) / 0.5;
+        scale = 3.0 - 2.6 * (0.5 - 0.5 * Math.cos(q * Math.PI));
+      }
+    }
+  } else {
+    // Phase C — horizontal figure-8 (infinity), 2 full loops
+    const sub = phase - 12;      // 0..4
+    const theta = (sub / 4) * 4 * Math.PI;   // 0..4π
+    nx = Math.sin(theta) * 0.9;
+    ny = (Math.sin(2*theta) / 2) * 0.7;
+    scale = 1.0;
+  }
+
+  const px = cx + nx * ax;
+  const py = cy + ny * ay;
+  dotEl.style.left = px + 'px';
+  dotEl.style.top  = py + 'px';
+  dotEl.style.transform = 'translate(-50%,-50%) scale(' + scale.toFixed(3) + ')';
+
+  // remember current normalised position so Space can mark it
+  brainspottingState.lastNx = nx;
+  brainspottingState.lastNy = ny;
+
+  session.raf = requestAnimationFrame(brainspottingLoop);
+}
+
+/* Therapist-only: record where the dot was when Space was pressed. */
+function addBrainspottingMark(){
+  if(STATE.mode !== 'brainspotting') return;
+  if(!session.running) return;
+  // hard guard: never collect marks from the immersive webview instance
+  if(document.body.classList.contains('immersive-render')) return;
+  if(!STATE.brainspottingMarks) STATE.brainspottingMarks = [];
+  STATE.brainspottingMarks.push({
+    nx: brainspottingState.lastNx,
+    ny: brainspottingState.lastNy
+  });
+  renderBrainspottingMarks();
+  const c = $('#sbPass');
+  if(c) c.textContent = STATE.brainspottingMarks.length;
+}
+
+function renderBrainspottingMarks(){
+  $$('#stage .brainspotting-mark').forEach(el => el.remove());
+  if(document.body.classList.contains('immersive-render')) return;
+  if(!STATE.brainspottingMarks || !STATE.brainspottingMarks.length) return;
+  const W = stage.clientWidth, H = stage.clientHeight;
+  const margin = Math.min(W,H)*0.08 + 30;
+  const cx = W/2, cy = H/2;
+  const ax = W/2 - margin;
+  const ay = H/2 - margin;
+  STATE.brainspottingMarks.forEach((m, i)=>{
+    const el = document.createElement('div');
+    el.className = 'brainspotting-mark';
+    el.style.left = (cx + m.nx * ax) + 'px';
+    el.style.top  = (cy + m.ny * ay) + 'px';
+    el.setAttribute('data-n', String(i+1));
+    stage.appendChild(el);
+  });
+}
+
+function clearBrainspottingMarks(){
+  STATE.brainspottingMarks = [];
+  $$('#stage .brainspotting-mark').forEach(el => el.remove());
+  const c = $('#sbPass');
+  if(c && STATE.mode === 'brainspotting') c.textContent = '0';
 }
 
 function pauseToggle(){
@@ -1888,6 +2074,8 @@ function exitToSetup(){
   $('#setupScreen').style.display = '';
   $('#sidebar').classList.remove('collapsed');
   hideOverlay();
+  // clear any brainspotting activation marks from the previous session
+  if(typeof clearBrainspottingMarks === 'function'){ clearBrainspottingMarks(); }
   // tear down the immersive layer when the host ends the session
   if(typeof Immersive !== 'undefined' && Immersive.active){ Immersive.stop(); }
 }
@@ -1952,14 +2140,27 @@ $('#startBtn').onclick = async ()=>{
 ============================================================= */
 document.addEventListener('keydown', (e)=>{
   if(!session.running) return;
-  if(e.code === 'Space'){ e.preventDefault(); pauseToggle(); }
+  if(e.code === 'Space'){
+    e.preventDefault();
+    // Brainspotting: Space marks an activation zone on the host's screen
+    // (the immersive webview ignores Space — guarded inside addBrainspottingMark).
+    if(STATE.mode === 'brainspotting' && !session.paused){
+      addBrainspottingMark();
+    } else {
+      pauseToggle();
+    }
+  }
   else if(e.key === 'Escape'){ e.preventDefault(); emergencyStop(); }
-  else if(e.key === 'ArrowRight' && STATE.mode!=='container'){ e.preventDefault(); endSet(); }
+  else if(e.key === 'ArrowRight' && STATE.mode!=='container' && STATE.mode!=='brainspotting'){
+    e.preventDefault(); endSet();
+  }
 });
 
 /* Resize redraw */
 window.addEventListener('resize', ()=>{
-  // dot will be repositioned on next frame
+  // dot will be repositioned on next animation frame;
+  // brainspotting marks are positioned in CSS pixels, so re-lay them out
+  if(STATE.mode === 'brainspotting') renderBrainspottingMarks();
 });
 
 /* =============================================================
