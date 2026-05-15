@@ -686,7 +686,7 @@ const I18N = {
     mode_safeplace:"Safe Place",
     mode_safeplace_desc:"Calm landscape with gentle bilateral stimulation",
     mode_brainspotting:"Brainspotting",
-    mode_brainspotting_desc:"Slow guided trajectory — press Space to mark activation",
+    mode_brainspotting_desc:"Slow guided trajectory — press Tab to mark activation, Space to pause",
     direction_title:"Direction",
     dir_horizontal:"Horizontal",
     dir_diagonal:"Diagonal",
@@ -750,7 +750,7 @@ const I18N = {
     mode_safeplace:"Безопасное место",
     mode_safeplace_desc:"Спокойный пейзаж с мягкой билатеральной стимуляцией",
     mode_brainspotting:"Брейнспоттинг",
-    mode_brainspotting_desc:"Медленная траектория — пробел отмечает зоны активации",
+    mode_brainspotting_desc:"Медленная траектория — Tab отмечает зону активации, пробел ставит на паузу",
     direction_title:"Направление",
     dir_horizontal:"Горизонталь",
     dir_diagonal:"Диагональ",
@@ -814,7 +814,7 @@ const I18N = {
     mode_safeplace:"Lieu sûr",
     mode_safeplace_desc:"Paysage calme avec stimulation bilatérale douce",
     mode_brainspotting:"Brainspotting",
-    mode_brainspotting_desc:"Trajectoire lente — Espace marque les zones d'activation",
+    mode_brainspotting_desc:"Trajectoire lente — Tab marque une zone d'activation, Espace met en pause",
     direction_title:"Direction",
     dir_horizontal:"Horizontale",
     dir_diagonal:"Diagonale",
@@ -2142,13 +2142,13 @@ document.addEventListener('keydown', (e)=>{
   if(!session.running) return;
   if(e.code === 'Space'){
     e.preventDefault();
-    // Brainspotting: Space marks an activation zone on the host's screen
-    // (the immersive webview ignores Space — guarded inside addBrainspottingMark).
-    if(STATE.mode === 'brainspotting' && !session.paused){
-      addBrainspottingMark();
-    } else {
-      pauseToggle();
-    }
+    pauseToggle();
+  }
+  else if(e.code === 'Tab' && STATE.mode === 'brainspotting'){
+    // Brainspotting: Tab marks an activation zone on the host's screen
+    // (the immersive webview ignores it — guarded inside addBrainspottingMark).
+    e.preventDefault();
+    addBrainspottingMark();
   }
   else if(e.key === 'Escape'){ e.preventDefault(); emergencyStop(); }
   else if(e.key === 'ArrowRight' && STATE.mode!=='container' && STATE.mode!=='brainspotting'){
