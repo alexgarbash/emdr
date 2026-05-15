@@ -1326,6 +1326,36 @@ const Immersive = {
     return e;
   },
 
+  /* Visible debug HUD — tells the therapist whether the ball is being
+     rendered over the patient's video, or only in the side panel, and
+     surfaces SDK errors that would otherwise be lost in the console. */
+  _hud:null,
+  _hudTimer:null,
+  _setHud(msg, kind){
+    if(this.isWebview) return;             // never inside the immersive layer
+    if(!msg){ if(this._hud) this._hud.style.display='none'; return; }
+    if(!this._hud){
+      this._hud = document.createElement('div');
+      this._hud.id = 'immersiveHud';
+      this._hud.style.cssText =
+        'position:fixed;top:12px;left:50%;transform:translateX(-50%);' +
+        'background:rgba(0,0,0,0.82);color:#fff;font-size:12.5px;' +
+        'padding:7px 14px;border-radius:14px;border:1px solid rgba(255,255,255,0.2);' +
+        'z-index:99999;pointer-events:none;font-family:-apple-system,system-ui,sans-serif;' +
+        'max-width:92vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;' +
+        'transition:opacity .3s';
+      document.body.appendChild(this._hud);
+    }
+    const icon = kind==='err' ? '⚠️ ' : (kind==='ok' ? '🎥 ' : 'ℹ️ ');
+    this._hud.textContent = icon + msg;
+    this._hud.style.display = 'block';
+    this._hud.style.opacity = '1';
+    clearTimeout(this._hudTimer);
+    if(kind === 'ok'){
+      this._hudTimer = setTimeout(()=>{ if(this._hud) this._hud.style.opacity = '0.35'; }, 4500);
+    }
+  },
+
   /* ---------- WEBVIEW SIDE: this instance is the rendered ball layer ---------- */
   initRenderedWebview(){
     this.isWebview = true;
@@ -1362,7 +1392,12 @@ const Immersive = {
     if(!this.supported() || this.active) return false;
     try{
       await this._pickClient();
-      await zoomSdk.runRenderingContext({ view:'immersive', defaultCutout:'standard' });
+      this._setHud('starting…');
+      // Omit defaultCutout for the broadest client compatibility — let Zoom
+      // pick the default (rectangle on modern clients). 'standard' requires
+      // Zoom 5.11.3+ and on older clients runRenderingContext can fail silently.
+      await zoomSdk.runRenderingContext({ view:'immersive' });
+      this._setHud('rendering context started — inviting client…');
       try{ await zoomSdk.sendAppInvitationToAllParticipants(); }catch(e){}
       this.active = true;
       this.webviewReady = false;
@@ -1371,6 +1406,7 @@ const Immersive = {
       ZoomBridge._renderStatus(); ZoomBridge._renderUI();
       return true;
     }catch(e){
+      this._setHud('runRenderingContext failed: ' + (e && e.message || e), 'err');
       console.warn('Immersive.start failed', e);
       this.active = false;
       ZoomBridge._renderStatus(); ZoomBridge._renderUI();
@@ -1396,17 +1432,25 @@ const Immersive = {
       if(this.clientUUID){
         try{ await zoomSdk.clearParticipant({participantUUID:this.clientUUID}); }catch(e){}
         try{
+          // Let drawParticipant inherit the context's default cutout — works
+          // back to Zoom 5.10.6 (where Layers landed) without requiring 5.11.3.
           await zoomSdk.drawParticipant({
             participantUUID:this.clientUUID,
             x:'0%', y:'0%', width:'100%', height:'100%',
-            zIndex:1, cutout:'standard'
+            zIndex:1
           });
-        }catch(e){ console.warn('drawParticipant failed', e); }
+        }catch(e){ this._setHud('drawParticipant failed: '+(e&&e.message||e)); console.warn('drawParticipant failed', e); }
       }
       // the EMDR ball as a transparent layer ON TOP of the video
       try{
         await zoomSdk.drawWebView({ x:'0%', y:'0%', width:'100%', height:'100%', zIndex:2 });
-      }catch(e){ console.warn('drawWebView failed', e); }
+        this._setHud(this.clientUUID
+          ? 'ball is now over the patient’s video — visible to everyone'
+          : 'ball is rendered immersive — no other participant to draw under it', 'ok');
+      }catch(e){
+        this._setHud('drawWebView failed: ' + (e && e.message || e), 'err');
+        console.warn('drawWebView failed', e);
+      }
     } finally {
       this._drawing = false;
     }
@@ -1446,7 +1490,21 @@ const Immersive = {
     this.active = false;
     this.webviewReady = false;
     try{ await zoomSdk.closeRenderingContext(); }catch(e){}
+    this._setHud('');   // hide the HUD
     ZoomBridge._renderStatus(); ZoomBridge._renderUI();
+  },
+
+  // Diagnostic: explain to the host why immersive can't engage right now.
+  whyUnsupported(){
+    if(typeof zoomSdk === 'undefined' || !ZoomBridge.available)
+      return 'opened outside Zoom — open this app from inside a Zoom meeting';
+    if(!ZoomBridge.inMeeting)
+      return 'not in a meeting — start a Zoom meeting and open this app from there';
+    if(!ZoomBridge.isHost)
+      return 'you are not the host (or co-host) of this meeting';
+    if(typeof zoomSdk.runRenderingContext !== 'function')
+      return 'this Zoom client is too old for Layers API (needs 5.10.6+)';
+    return 'unknown reason — check console';
   }
 };
 
@@ -2126,6 +2184,9 @@ $('#startBtn').onclick = async ()=>{
   // to start the local session immediately afterwards.
   if(Immersive.supported() && !Immersive.active){
     await Immersive.start();
+  } else if(!Immersive.active){
+    // make it visible WHY the ball is staying in the side panel
+    Immersive._setHud('side panel only — ' + Immersive.whyUnsupported(), 'err');
   }
   startSession();
   ZoomBridge.syncState({
